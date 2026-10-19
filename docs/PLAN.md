@@ -2,7 +2,7 @@
 
 ## 1. 目标
 
-构建一个纯前端搜索站，部署在 Cloudflare Pages 等静态托管平台。技术栈为 Vue 3 + Vite + TypeScript，构建产物为单个 `dist/index.html`。站点通过 DeepSeek Search API 搜索，通过 Chat Completions API 生成 AI 摘要与追问，通过 Fetch API 读取网页正文。
+构建一个纯前端搜索站，部署在 Cloudflare Pages、GitHub Pages 等静态托管平台。技术栈为 Vue 3 + Vite + TypeScript，构建产物为单个 `docs/index.html`。站点通过 DeepSeek Search API 搜索，通过 Chat Completions API 生成 AI 摘要与追问，通过 Fetch API 读取网页正文。
 
 核心约束：
 
@@ -297,7 +297,7 @@ testApiKey(key): Promise<{ models: string[]; elapsedMs: number }>
 | T3 AI 模式 | fe-ai | components/ai/、composables/useAi.ts、lib/{aiContext,markdown}.ts、对应测试 | T1 |
 | T4 设置与统计 | fe-settings | components/settings/、lib/{pricing,usage}.ts、stores/usage.ts、对应测试 | T1 |
 | T5 集成与构建 | fe-core | 共享/集成文件；功能问题通知负责人 | T2、T3、T4 |
-| T6 独立验收 | qa-review | scripts/、tests/integration/、docs/qa/、dist/（验证时） | T5 |
+| T6 独立验收 | qa-review | scripts/、tests/integration/、docs/qa/、docs/（构建入口） | T5 |
 | T7 修复 | 对应负责人 | 各自作用域 | T6 |
 | T8 复验 | qa-review | 同 T6 | T7 |
 | T9 最终验收与暂存 | Lead | README.md、docs/、Git 暂存区 | T8 |
@@ -307,7 +307,7 @@ testApiKey(key): Promise<{ models: string[]; elapsedMs: number }>
 - 功能团队不得修改共享文件；需要改契约时先通知 Lead，由 Lead 决定并让 `fe-core` 修改。
 - 只有 Lead 或 `fe-core` 执行依赖安装与构建；功能团队只跑 typecheck 与自己的测试，避免并发写 `node_modules`/`dist`。
 - 不执行 `git commit`；最终由 Lead `git add` 并提醒用户手动提交。
-- 不提交 `.env`、`node_modules/`、`dist/`、`.npm-cache/`、coverage。
+- 不提交 `.env`、`node_modules/`、`.npm-cache/`、coverage；`docs/index.html` 作为 GitHub Pages 入口需要提交；`.gitignore` 保留这些本地忽略规则，但已移除 `dist/`。
 - 中间进度由 Lead 记录到 `docs/PROGRESS.md`；任务完成后询问用户是否清理过程文档。
 
 ## 8. 验收

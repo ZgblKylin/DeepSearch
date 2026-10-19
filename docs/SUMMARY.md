@@ -2,7 +2,7 @@
 
 ## 1. 完成情况
 
-DeepSearch 纯前端搜索站已完成。站点使用 Vue 3 + Vite + TypeScript，构建产物为单个 `dist/index.html`；浏览器直接调用 DeepSeek Search、Chat Completions 与 Fetch API，不依赖服务端、数据库或构建时密钥。
+DeepSearch 纯前端搜索站已完成。站点使用 Vue 3 + Vite + TypeScript，构建产物为单个 `docs/index.html`；浏览器直接调用 DeepSeek Search、Chat Completions 与 Fetch API，不依赖服务端、数据库或构建时密钥。
 
 已交付：
 
@@ -18,17 +18,17 @@ DeepSearch 纯前端搜索站已完成。站点使用 Vue 3 + Vite + TypeScript�
 
 ## 2. 最终验证证据
 
-2026-10-19 由 Lead 执行标准命令：
+2026-10-20 由 Lead 执行标准命令：
 
 ```text
 npm run check
 - vue-tsc --noEmit：通过
 - Vitest：17 个测试文件、199 项全部通过
-- vite build：成功，dist/index.html 339,970 字节
+- vite build：成功，docs/index.html 340,023 字节
 - verify:singlefile：8 项断言全部通过
 ```
 
-`scripts/verify-singlefile.mjs` 确认：`dist/` 只有 `index.html`；无外链脚本/样式；含 `api.deepseek.com`；不含 `.env` 中的真实 Key 与 `sk-` 形式 Key；体积小于 2 MB。生产 CSP 的 `connect-src` 为 `'self' https://api.deepseek.com`，不包含开发 HMR 的 `ws://localhost`。
+`scripts/verify-singlefile.mjs` 确认：`docs/index.html` 存在且没有独立 `assets` 目录；无外链脚本/样式；含 `api.deepseek.com`；不含 `.env` 中的真实 Key 与 `sk-` 形式 Key；体积小于 2 MB。生产 CSP 的 `connect-src` 为 `'self' https://api.deepseek.com`，不包含开发 HMR 的 `ws://localhost`。`docs/.nojekyll` 用于 GitHub Pages 跳过 Jekyll。
 
 QA 在 `docs/qa/REPORT.md` 与 `docs/qa/RECHECK.md` 中记录了真实 API E2E：Key 弹窗、401 错误字段、真实搜索、相关度/最新排序、筛选与 URL/历史、AI 摘要与 `[n]` 引用、Fetch 追问、设置与统计、清空数据、主题、响应式、View Transition。最终结论为 P0/P1/P2 全部清零；T6 与 T8 合计消耗约 0.16 元真实 API 费用。
 

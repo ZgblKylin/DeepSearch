@@ -27,7 +27,7 @@ function conditionalCspPlugin(): Plugin {
  * 单文件构建 + 开发 Key 注入。
  *
  * - 开发模式（vite serve）从 `.env` 读取 DEEPSEEK_API_KEY，注入 `__DEV_API_KEY__`。
- * - 生产构建（vite build，mode = production）注入空字符串，真实 Key 永不进入 dist。
+ * - 生产构建（vite build，mode = production）注入空字符串，真实 Key 永不进入 docs。
  * - `.env` 不参与 import，仅通过 define 字符串替换注入；构建产物不含其它环境变量。
  */
 export default defineConfig(({ mode }) => {
@@ -46,6 +46,9 @@ export default defineConfig(({ mode }) => {
       },
     },
     build: {
+      outDir: 'docs',
+      // docs 同时保存项目文档与 QA 截图，不能清空；单文件插件只会写 docs/index.html
+      emptyOutDir: false,
       target: 'es2022',
       cssCodeSplit: false,
       sourcemap: false,

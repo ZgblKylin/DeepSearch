@@ -1,6 +1,6 @@
 # DeepSearch
 
-DeepSearch 是一个纯前端搜索站：浏览器直接调用 DeepSeek Search API 获取网页结果，调用 Chat Completions API 生成侧边栏摘要与追问会话，调用 Fetch API 读取网页正文。项目没有后端、没有数据库、没有服务端渲染，构建产物是一个可以单独部署的 `dist/index.html`。
+DeepSearch 是一个纯前端搜索站：浏览器直接调用 DeepSeek Search API 获取网页结果，调用 Chat Completions API 生成侧边栏摘要与追问会话，调用 Fetch API 读取网页正文。项目没有后端、没有数据库、没有服务端渲染，构建产物是一个可以单独部署的 `docs/index.html`。
 
 项目特点：
 
@@ -46,7 +46,7 @@ npm install --cache .npm-cache
 
 `.env` 中的 `DEEPSEEK_API_KEY` 只在 Vite 开发模式下通过 `__DEV_API_KEY__` 注入。应用启动时，如果 localStorage 里没有 Key，会把该值写入作为初始 Key，方便本地验证；如果已经保存过 Key，则不会覆盖。
 
-生产构建不会注入 `.env` 中的 Key，`dist/index.html` 不包含真实 Key。`npm run verify:singlefile` 会检查这一点。
+生产构建不会注入 `.env` 中的 Key，`docs/index.html` 不包含真实 Key。`npm run verify:singlefile` 会检查这一点。
 
 ## 构建与部署
 
@@ -54,19 +54,32 @@ npm install --cache .npm-cache
 npm run build
 ```
 
-构建完成后，`dist/` 中只有 `index.html`，JavaScript、CSS、图标、favicon 全部内联。可以直接打开或上传这个文件；也可以使用：
+构建完成后，入口文件是 `docs/index.html`，JavaScript、CSS、图标、favicon 全部内联。`docs/` 同时保存项目文档与 QA 截图，构建配置使用 `emptyOutDir: false`，不会清空这些文件；可以直接打开 `docs/index.html`，也可以使用：
 
 ```bash
 npm run preview
 ```
 
+### GitHub Pages
+
+1. 运行 `npm run build`，确认 `docs/index.html` 已更新。
+2. 提交并推送 `docs/index.html` 与 `docs/.nojekyll`。
+3. 在仓库 Settings → Pages → Build and deployment 中选择 **Deploy from a branch**。
+4. Branch 选择 `main`，Folder 选择 `/docs`，保存后等待发布。
+
+`docs/.nojekyll` 用于跳过 Jekyll，确保 Pages 直接按静态文件发布。项目使用相对路径与单文件内联资源，不需要配置 `base` 或重写规则。
+
 ### Cloudflare Pages
 
 - 构建命令：`npm ci && npm run build`
-- 输出目录：`dist`
+- 输出目录：`docs`
 - Node 版本：`22.12.0` 或更高
 - 不需要任何环境变量；站点运行时由用户在浏览器里配置自己的 DeepSeek API Key
 - 路由使用当前 pathname 加 `?q=`，不需要 SPA 重写规则
+
+### 提交注意事项
+
+`.gitignore` 继续管理 `.env`、`node_modules/`、`.npm-cache/`、coverage 等本地文件；为支持 GitHub Pages，已从忽略列表移除 `dist/`，`docs/` 与 `docs/index.html` 需要提交。项目构建输出已改为 `docs/`，不再使用 `dist/`；提交前请检查 `git status`，不要加入 `.env`、依赖或缓存文件。
 
 由于页面请求直接发往 `https://api.deepseek.com`，部署域名必须被 DeepSeek API 的 CORS 策略接受。当前 API 会反射请求 Origin；如果上游未来收紧 CORS，纯前端方案需要改为自建代理。
 
@@ -161,11 +174,11 @@ API Key 以明文保存在 localStorage，任何能执行本页脚本的代码�
 | 命令 | 作用 |
 | --- | --- |
 | `npm run dev` | 启动开发服务器 |
-| `npm run build` | 类型检查并构建单文件到 `dist/` |
+| `npm run build` | 类型检查并构建单文件到 `docs/` |
 | `npm run preview` | 预览生产构建 |
 | `npm run typecheck` | Vue/TypeScript 类型检查 |
 | `npm run test:run` | 运行全部单元与集成测试 |
-| `npm run verify:singlefile` | 校验 `dist/index.html` 与 Key 泄漏 |
+| `npm run verify:singlefile` | 校验 `docs/index.html` 与 Key 泄漏 |
 | `npm run check` | 依次执行 typecheck、测试、构建、单文件校验 |
 
 `npm run check` 是最终验收命令。测试覆盖查询语法、排序、费用、统计、错误归一化、Markdown 清洗、设置与弹窗、筛选与帮助等；`docs/qa/REPORT.md` 记录真实 API E2E 与代码审查结论。
@@ -182,7 +195,7 @@ src/
   types.ts                共享类型与默认值
 scripts/verify-singlefile.mjs
 tests/                    unit / integration
-docs/                     计划、进度、总结与 QA 报告
+docs/                     计划、进度、总结、QA 报告与 GitHub Pages 入口
 ```
 
 ## 已知限制

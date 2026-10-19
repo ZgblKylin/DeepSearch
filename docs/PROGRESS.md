@@ -68,3 +68,9 @@
 - 用户反馈：AI 对话栏尺寸应更大，高度默认填满；免责声明不要单独占一行，放到标题栏右侧。
 - 已完成：桌面侧边栏宽度 380px → 440px；卡片高度填满顶栏以下的可用视口，消息线程自适应剩余高度，输入框固定底部；移动端保持自适应高度；标题栏右侧显示“AI 生成，仅供参考”，移除正文底部单独一行。
 - 验证：`npm run check` 通过（199/199，build 339,970 字节，单文件校验 8/8）；真实浏览器 1280×720 实测侧边栏 440×624、输入框可见；375×812 无横向溢出，免责声明仍在标题栏内。截图：`docs/qa/screenshots/qa-ai-panel-large.png`。
+
+## 2026-10-20 / 第 11 轮：构建输出改为 docs，支持 GitHub Pages
+
+- 用户要求：构建输出路径改为 `docs`，从 `.gitignore` 中移除 `dist/`，其他忽略项仍由 `.gitignore` 管理，以 GitHub Pages 的 `/docs` 作为部署目录。
+- 已完成：Vite `build.outDir` 改为 `docs` 且 `emptyOutDir: false`，避免清空已有项目文档与 QA 截图；`verify-singlefile.mjs` 改为校验 `docs/index.html`、禁止独立 `assets` 目录；新增 `docs/.nojekyll`；README 更新 GitHub Pages 与 Cloudflare Pages 输出目录；`.gitignore` 保留 `.env`、`node_modules/`、缓存等规则并移除 `dist/`。
+- 验证：`npm run build` 生成 `docs/index.html` 340,023 字节，项目文档与截图保留；`npm run verify:singlefile` 9/9 通过；GitHub Pages 入口为 `main` 分支 `/docs` 目录。
