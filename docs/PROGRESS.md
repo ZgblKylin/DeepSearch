@@ -86,4 +86,5 @@
 
 - 用户要求：构建目录恢复为标准 `dist`，恢复 `.gitignore` 的 `dist/` 规则，改由 GitHub Actions 编译并部署 GitHub Pages。
 - 已完成：Vite `build.outDir` 改回 `dist` 并恢复默认清空行为；`verify-singlefile.mjs` 改回校验 `dist/` 且只允许 `index.html`；`.gitignore` 恢复 `dist/`；新增 `.github/workflows/pages.yml`（`npm ci` → `npm run check` → 上传 `dist` → Pages 部署）；移除已跟踪的 `docs/index.html` 与 `docs/.nojekyll`；README、PLAN、SUMMARY 同步部署方式。
+- Actions 运行环境：五个官方 Action 均升级到 Node 24 兼容版本（`checkout@v7`、`setup-node@v7`、`configure-pages@v6`、`upload-pages-artifact@v5`、`deploy-pages@v5`），消除 Node.js 20 弃用警告。
 - 验证：typecheck 通过；全套 204/204 通过；build 成功，`dist/index.html` 340,787 字节；单文件校验 8/8；`docs/` 仅保留项目文档与 QA 目录；workflow 待推送后由 GitHub 首次运行验证。
