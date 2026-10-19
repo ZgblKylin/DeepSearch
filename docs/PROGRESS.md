@@ -81,3 +81,9 @@
 - 判断：SPA 使用 `@submit.prevent`，浏览器表单历史不会稳定保存；改用浏览器原生 `datalist` 展示本地历史，不引入自绘下拉组件。
 - 已完成：新增 `src/lib/searchHistory.ts` 与 `deepsearch.history.v1` 存储键；SearchBar 提交合法查询后记录最近 10 条，输入框绑定 `list` 与 `autocomplete="on"`；清空数据时同时删除历史；README/PLAN 补充说明。
 - 验证：typecheck 通过；新增 5 项搜索历史测试，全套 204/204 通过；build 成功，`docs/index.html` 340,787 字节；单文件校验 9/9；生产预览中提交查询后 localStorage 与 datalist 选项均正确写入。
+
+## 2026-10-20 / 第 13 轮：恢复标准 dist 并使用 GitHub Actions 部署
+
+- 用户要求：构建目录恢复为标准 `dist`，恢复 `.gitignore` 的 `dist/` 规则，改由 GitHub Actions 编译并部署 GitHub Pages。
+- 已完成：Vite `build.outDir` 改回 `dist` 并恢复默认清空行为；`verify-singlefile.mjs` 改回校验 `dist/` 且只允许 `index.html`；`.gitignore` 恢复 `dist/`；新增 `.github/workflows/pages.yml`（`npm ci` → `npm run check` → 上传 `dist` → Pages 部署）；移除已跟踪的 `docs/index.html` 与 `docs/.nojekyll`；README、PLAN、SUMMARY 同步部署方式。
+- 验证：typecheck 通过；全套 204/204 通过；build 成功，`dist/index.html` 340,787 字节；单文件校验 8/8；`docs/` 仅保留项目文档与 QA 目录；workflow 待推送后由 GitHub 首次运行验证。

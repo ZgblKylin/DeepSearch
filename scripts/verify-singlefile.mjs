@@ -1,26 +1,25 @@
 #!/usr/bin/env node
 /**
- * docs 单文件构建校验（无第三方依赖）。
+ * dist 单文件构建校验（无第三方依赖）。
  *
  * 断言：
- * 1. `docs/index.html` 存在，且没有独立的 `docs/assets` 目录；
+ * 1. `dist/` 中只有 `index.html`（不允许任何其它文件）；
  * 2. 不含外链脚本（`<script src>`）与外链样式（`<link rel="stylesheet">`）；
  * 3. 包含 API 基址 `api.deepseek.com`；
  * 4. 不包含 `.env` 中的真实 `DEEPSEEK_API_KEY`；
  * 5. 不包含 `sk-` 形式的真实 API Key（占位符 `sk-...` 允许）；
  * 6. 体积小于 2 MB。
  *
- * `docs/` 同时保存项目文档与 QA 截图，因此不要求目录内只有 index.html。
  * 失败时以非零状态码退出，并输出不含敏感值的诊断信息。
  */
 
-import { existsSync, readFileSync, statSync } from 'node:fs'
+import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
-const OUT_DIR = join(ROOT, 'docs')
-const INDEX_FILE = join(OUT_DIR, 'index.html')
+const DIST_DIR = join(ROOT, 'dist')
+const INDEX_FILE = join(DIST_DIR, 'index.html')
 const ENV_FILE = join(ROOT, '.env')
 const SIZE_BUDGET = 2 * 1024 * 1024
 /** 真实 Key 形态：sk- 后至少 20 位字母数字/下划线/连字符；`sk-...` 占位符不匹配 */
@@ -42,21 +41,34 @@ function mask(value) {
   return `${value.slice(0, 3)}${'*'.repeat(6)}（长度 ${value.length}）`
 }
 
-function checkOutput() {
+/** 收集目录内全部条目（相对路径），用于“dist 只有 index.html”断言 */
+function listEntries(dir, base = '') {
+  const entries = []
+  for (const name of readdirSync(dir)) {
+    const fullPath = join(dir, name)
+    const relativePath = base ? `${base}/${name}` : name
+    const stat = statSync(fullPath)
+    if (stat.isDirectory()) entries.push(...listEntries(fullPath, relativePath))
+    else entries.push({ path: relativePath, size: stat.size })
+  }
+  return entries
+}
+
+function checkDistEntries() {
+  let entries
   try {
-    const stat = statSync(INDEX_FILE)
-    pass(`docs/index.html 存在（${stat.size} 字节）`)
+    entries = listEntries(DIST_DIR)
   } catch {
-    fail('docs/index.html 不存在或不可读，请先运行 npm run build')
+    fail('dist/ 不存在或不可读，请先运行 npm run build')
     return false
   }
-
-  if (existsSync(join(OUT_DIR, 'assets'))) {
-    fail('docs/assets 目录不应存在：单文件构建应内联全部 JS/CSS')
-  } else {
-    pass('无独立 assets 目录')
+  if (entries.length === 1 && entries[0].path === 'index.html') {
+    pass(`dist 只包含 index.html（${entries[0].size} 字节）`)
+    return true
   }
-  return true
+  const names = entries.map((entry) => `${entry.path} (${entry.size} 字节)`).join(', ')
+  fail(`dist 应只包含 index.html，实际：${names}`)
+  return false
 }
 
 function readEnvKey() {
@@ -88,25 +100,25 @@ function checkHtml() {
   try {
     html = readFileSync(INDEX_FILE, 'utf8')
   } catch {
-    fail('docs/index.html 不存在或不可读')
+    fail('dist/index.html 不存在或不可读')
     return
   }
 
   const sizeBytes = Buffer.byteLength(html, 'utf8')
   if (sizeBytes < SIZE_BUDGET) {
-    pass(`docs/index.html 体积 ${sizeBytes} 字节 < 2 MB 预算`)
+    pass(`dist/index.html 体积 ${sizeBytes} 字节 < 2 MB 预算`)
   } else {
-    fail(`docs/index.html 体积 ${sizeBytes} 字节，超出 2 MB 预算`)
+    fail(`dist/index.html 体积 ${sizeBytes} 字节，超出 2 MB 预算`)
   }
 
   if (/<script\b[^>]*\bsrc\s*=/i.test(html)) {
-    fail('docs/index.html 含外链脚本（<script src>）')
+    fail('dist/index.html 含外链脚本（<script src>）')
   } else {
     pass('无外链脚本（<script src>）')
   }
 
   if (/<link\b[^>]*\brel\s*=\s*["']?stylesheet/i.test(html)) {
-    fail('docs/index.html 含外链样式（<link rel="stylesheet">）')
+    fail('dist/index.html 含外链样式（<link rel="stylesheet">）')
   } else {
     pass('无外链样式（<link rel="stylesheet">）')
   }
@@ -118,7 +130,7 @@ function checkHtml() {
   }
 
   if (html.includes('__DEV_API_KEY__')) {
-    fail('docs/index.html 仍包含 __DEV_API_KEY__ 占位符（应已被构建替换）')
+    fail('dist/index.html 仍包含 __DEV_API_KEY__ 占位符（应已被构建替换）')
   } else {
     pass('__DEV_API_KEY__ 占位符已被构建替换')
   }
@@ -126,7 +138,7 @@ function checkHtml() {
   const envKey = readEnvKey()
   if (envKey) {
     if (html.includes(envKey)) {
-      fail(`docs/index.html 包含 .env 中的真实 DEEPSEEK_API_KEY（${mask(envKey)}）`)
+      fail(`dist/index.html 包含 .env 中的真实 DEEPSEEK_API_KEY（${mask(envKey)}）`)
     } else {
       pass(`不包含 .env 中的真实 DEEPSEEK_API_KEY（已检查 ${mask(envKey)}）`)
     }
@@ -136,7 +148,7 @@ function checkHtml() {
 
   const leaked = [...new Set(html.match(REAL_KEY_PATTERN) ?? [])]
   if (leaked.length > 0) {
-    fail(`docs/index.html 含疑似真实 API Key：${leaked.map(mask).join(', ')}`)
+    fail(`dist/index.html 含疑似真实 API Key：${leaked.map(mask).join(', ')}`)
   } else {
     pass('无 sk- 形式的疑似真实 API Key')
   }
@@ -146,7 +158,7 @@ console.log('DeepSearch 单文件构建校验')
 console.log(`目标：${INDEX_FILE}`)
 console.log('')
 
-const hasOutput = checkOutput()
+const hasOutput = checkDistEntries()
 if (hasOutput) checkHtml()
 
 console.log('')

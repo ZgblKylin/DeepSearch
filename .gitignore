@@ -3,8 +3,9 @@
 .env.*
 !.env.example
 
-# 依赖与缓存
+# 依赖、构建产物与缓存
 node_modules/
+dist/
 coverage/
 .npm-cache/
 .vite/

@@ -2,14 +2,15 @@
 
 ## 1. 完成情况
 
-DeepSearch 纯前端搜索站已完成。站点使用 Vue 3 + Vite + TypeScript，构建产物为单个 `docs/index.html`；浏览器直接调用 DeepSeek Search、Chat Completions 与 Fetch API，不依赖服务端、数据库或构建时密钥。
+DeepSearch 纯前端搜索站已完成。站点使用 Vue 3 + Vite + TypeScript，构建产物为单个 `dist/index.html`；浏览器直接调用 DeepSeek Search、Chat Completions 与 Fetch API，不依赖服务端、数据库或构建时密钥。
 
 已交付：
 
 - 固定顶栏、品牌与官方蓝色虎鲸标识、主题三态、GitHub 与设置入口。
 - 首页居中搜索框；进入结果页时通过 View Transitions 移动到顶栏居中，结果区使用骨架与三点加载动画。
 - `?q=` 查询串路由，支持刷新、前进、后退与分享链接。
-- 搜索语法解析与可视化筛选：站点、排除站点、精确短语、排除关键词、语言、日期；搜索框用原生 datalist 记忆最近 10 条提交词。- 默认按 `rerank_score` 降序；支持按最新日期排序。
+- 搜索语法解析与可视化筛选：站点、排除站点、精确短语、排除关键词、语言、日期；搜索框用原生 datalist 记忆最近 10 条提交词。
+- 默认按 `rerank_score` 降序；支持按最新日期排序。
 - AI 模式默认开启：自动生成“AI 对话”首条摘要、优质/权威标签、`[n]` 引用；摘要生成后可直接多轮追问，每条结果还提供基于该网页正文的 Fetch 追问。
 - Key 输入弹窗、401/402/429/5xx 错误弹窗、测试连接、模型与思考挡位、条数、排序、外部搜索引擎配置。
 - 本机统计搜索/抓取次数、Token 消耗与按峰谷价估算的 API 费用；支持清零与清空全部数据。
@@ -23,11 +24,11 @@ DeepSearch 纯前端搜索站已完成。站点使用 Vue 3 + Vite + TypeScript�
 npm run check
 - vue-tsc --noEmit：通过
 - Vitest：18 个测试文件、204 项全部通过
-- vite build：成功，docs/index.html 340,787 字节
+- vite build：成功，dist/index.html 340,787 字节
 - verify:singlefile：8 项断言全部通过
 ```
 
-`scripts/verify-singlefile.mjs` 确认：`docs/index.html` 存在且没有独立 `assets` 目录；无外链脚本/样式；含 `api.deepseek.com`；不含 `.env` 中的真实 Key 与 `sk-` 形式 Key；体积小于 2 MB。生产 CSP 的 `connect-src` 为 `'self' https://api.deepseek.com`，不包含开发 HMR 的 `ws://localhost`。`docs/.nojekyll` 用于 GitHub Pages 跳过 Jekyll。
+`scripts/verify-singlefile.mjs` 确认：`dist/` 只有 `index.html`；无外链脚本/样式；含 `api.deepseek.com`；不含 `.env` 中的真实 Key 与 `sk-` 形式 Key；体积小于 2 MB。生产 CSP 的 `connect-src` 为 `'self' https://api.deepseek.com`，不包含开发 HMR 的 `ws://localhost`。GitHub Pages 由 `.github/workflows/pages.yml` 自动构建并上传 `dist/`，不提交生成入口。
 
 QA 在 `docs/qa/REPORT.md` 与 `docs/qa/RECHECK.md` 中记录了真实 API E2E：Key 弹窗、401 错误字段、真实搜索、相关度/最新排序、筛选与 URL/历史、AI 摘要与 `[n]` 引用、Fetch 追问、设置与统计、清空数据、主题、响应式、View Transition。最终结论为 P0/P1/P2 全部清零；T6 与 T8 合计消耗约 0.16 元真实 API 费用。
 
@@ -37,6 +38,7 @@ QA 在 `docs/qa/REPORT.md` 与 `docs/qa/RECHECK.md` 中记录了真实 API E2E�
 - **单 HTML**：`vite-plugin-singlefile` 内联 JS、CSS、站点图标与 favicon；界面不加载第三方字体。搜索结果标题前的图标优先使用 API 的 `site_icon`，缺失或加载失败时回退为本地字母头像。
 - **Key 注入边界**：`.env` 的 `DEEPSEEK_API_KEY` 只在开发模式注入 `__DEV_API_KEY__`，且仅当 localStorage 无 Key 时写入；生产构建注入空字符串，产物不含 Key。
 - **AI 请求**：非流式 Chat，`max_tokens` 4096；首条摘要取前 8 条结果，单结果追问取该条网页正文；上下文有单条与总量截断；历史只回传 `content`。
+- **部署**：构建输出为标准 `dist/`，由 `.gitignore` 忽略；GitHub Actions 在 `main` 推送或手动触发时执行 `npm run check` 并部署 `dist/`，不提交生成文件。
 - **计费**：价格集中在 `src/lib/pricing.ts`；峰谷按北京时间工作日近似，忽略法定节假日；Search/Fetch 仅成功且非空计费。
 - **隐私**：无广告、无统计、无 Cookie、无第三方请求；AI Markdown 经 DOMPurify 清洗，禁止图片/iframe/表单，链接强制 http(s) 与 `noopener noreferrer`。
 
