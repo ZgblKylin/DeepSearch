@@ -24,7 +24,7 @@ DeepSearch 纯前端搜索站已完成。站点使用 Vue 3 + Vite + TypeScript�
 npm run check
 - vue-tsc --noEmit：通过
 - Vitest：17 个测试文件、199 项全部通过
-- vite build：成功，dist/index.html 339,437 字节
+- vite build：成功，dist/index.html 339,970 字节
 - verify:singlefile：8 项断言全部通过
 ```
 

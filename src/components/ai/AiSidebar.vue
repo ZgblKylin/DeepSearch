@@ -58,15 +58,18 @@ const loadingLabel = computed(() => {
             基于 {{ sources.length }} 个来源
           </span>
         </div>
-        <button
-          type="button"
-          class="icon-btn ai-sidebar__toggle"
-          :aria-expanded="!collapsed"
-          :aria-label="collapsed ? '展开 AI 对话' : '收起 AI 对话'"
-          @click="collapsed = !collapsed"
-        >
-          <Icon :name="collapsed ? 'chevron-down' : 'chevron-up'" :size="16" />
-        </button>
+        <div class="ai-sidebar__header-side">
+          <span class="ai-sidebar__disclaimer">AI 生成，仅供参考</span>
+          <button
+            type="button"
+            class="icon-btn ai-sidebar__toggle"
+            :aria-expanded="!collapsed"
+            :aria-label="collapsed ? '展开 AI 对话' : '收起 AI 对话'"
+            @click="collapsed = !collapsed"
+          >
+            <Icon :name="collapsed ? 'chevron-down' : 'chevron-up'" :size="16" />
+          </button>
+        </div>
       </header>
 
       <div v-show="!collapsed" class="ai-sidebar__body">
@@ -124,8 +127,6 @@ const loadingLabel = computed(() => {
             <span>正在准备 AI 对话</span>
           </div>
         </div>
-
-        <p class="ai-sidebar__disclaimer">AI 生成，仅供参考</p>
       </div>
     </div>
   </aside>
@@ -139,7 +140,10 @@ const loadingLabel = computed(() => {
 .ai-sidebar__card {
   display: flex;
   flex-direction: column;
+  height: calc(100vh - var(--topbar-height) - var(--space-8));
+  height: calc(100dvh - var(--topbar-height) - var(--space-8));
   max-height: calc(100vh - var(--topbar-height) - var(--space-8));
+  max-height: calc(100dvh - var(--topbar-height) - var(--space-8));
   overflow: hidden;
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
@@ -149,11 +153,20 @@ const loadingLabel = computed(() => {
 
 .ai-sidebar__header {
   display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-2);
   padding: var(--space-3) var(--space-4);
   border-bottom: 1px solid var(--border);
+}
+
+.ai-sidebar__header-side {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: var(--space-2);
 }
 
 .ai-sidebar__brand {
@@ -189,8 +202,10 @@ const loadingLabel = computed(() => {
 
 .ai-sidebar__body {
   display: flex;
+  flex: 1 1 auto;
   flex-direction: column;
   gap: var(--space-3);
+  min-height: 0;
   padding: var(--space-4);
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -256,12 +271,9 @@ const loadingLabel = computed(() => {
 }
 
 .ai-sidebar__disclaimer {
-  margin-top: auto;
-  padding-top: var(--space-2);
-  border-top: 1px dashed var(--border);
   color: var(--text-muted);
   font-size: var(--text-xs);
-  text-align: center;
+  white-space: nowrap;
 }
 
 @keyframes ai-skeleton-pulse {
@@ -277,6 +289,7 @@ const loadingLabel = computed(() => {
 
 @media (max-width: 1024px) {
   .ai-sidebar__card {
+    height: auto;
     max-height: none;
   }
 

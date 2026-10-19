@@ -162,8 +162,11 @@ function onCompositionEnd(): void {
 <style scoped>
 .ai-chat {
   display: flex;
+  flex: 1 1 auto;
   flex-direction: column;
   gap: var(--space-3);
+  min-height: 0;
+  height: 100%;
 }
 
 .ai-chat__notice {
@@ -185,9 +188,10 @@ function onCompositionEnd(): void {
 
 .ai-chat__thread {
   display: flex;
+  flex: 1 1 auto;
   flex-direction: column;
   gap: var(--space-3);
-  max-height: min(46vh, 420px);
+  min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
 }
@@ -260,6 +264,7 @@ function onCompositionEnd(): void {
 
 .ai-chat__composer {
   display: flex;
+  flex: 0 0 auto;
   align-items: flex-end;
   gap: var(--space-2);
 }
@@ -279,5 +284,16 @@ function onCompositionEnd(): void {
   height: 40px;
   padding: 0;
   border-radius: var(--radius-sm);
+}
+
+@media (max-width: 1024px) {
+  .ai-chat {
+    height: auto;
+  }
+
+  .ai-chat__thread {
+    flex: 0 1 auto;
+    max-height: min(56vh, 480px);
+  }
 }
 </style>
