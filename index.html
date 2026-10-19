@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="DeepSearch：纯前端 DeepSeek 搜索与 AI 摘要。无广告、无追踪，API Key 仅保存在浏览器本地。"
+    />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self' https://api.deepseek.com__CSP_DEV_WS__; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'"
+    />
+    <meta name="theme-color" content="#ffffff" />
+    <link
+      rel="icon"
+      type="image/svg+xml"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%233964FE'/%3E%3Cpath d='M6 16c3.2-5 9-8 15-8-2.2 2.2-3.2 4.4-3.2 6.6 0 3.2 2.2 6 5.2 7.2-5.4 2.2-13 1.6-17-5.8Z' fill='white'/%3E%3C/svg%3E"
+    />
+    <title>DeepSearch</title>
+    <script>
+      // 首屏前应用主题，避免深色模式闪白。
+      ;(function () {
+        var storageKey = 'deepsearch.settings.v1'
+        var theme = 'system'
+        try {
+          var raw = window.localStorage.getItem(storageKey)
+          if (raw) {
+            var parsed = JSON.parse(raw)
+            if (
+              parsed &&
+              (parsed.theme === 'light' || parsed.theme === 'dark' || parsed.theme === 'system')
+            ) {
+              theme = parsed.theme
+            }
+          }
+        } catch (error) {
+          theme = 'system'
+        }
+        var prefersDark =
+          window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
+        var resolved = theme === 'dark' || (theme === 'system' && prefersDark) ? 'dark' : 'light'
+        document.documentElement.dataset.theme = resolved
+        var meta = document.querySelector('meta[name="theme-color"]')
+        if (meta) meta.setAttribute('content', resolved === 'dark' ? '#0f1115' : '#ffffff')
+      })()
+    </script>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

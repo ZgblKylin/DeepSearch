@@ -1,0 +1,145 @@
+/* 设计令牌：颜色、间距、字体、层级。功能组件只使用变量，不硬编码色值。 */
+
+:root {
+  color-scheme: light;
+
+  /* 品牌色 */
+  --brand: #3964fe;
+  --brand-hover: #2b50e0;
+  --brand-active: #2545c4;
+  --brand-soft: rgba(57, 100, 254, 0.1);
+  --brand-soft-strong: rgba(57, 100, 254, 0.18);
+  --brand-contrast: #ffffff;
+
+  /* 背景与表面 */
+  --bg: #ffffff;
+  --bg-subtle: #f5f7fb;
+  --bg-elevated: #ffffff;
+  --bg-inset: #eef1f7;
+  --surface: #ffffff;
+  --surface-hover: #f2f4f9;
+  --surface-active: #e9edf6;
+
+  /* 文本 */
+  --text: #16181d;
+  --text-secondary: #464d5c;
+  --text-muted: #737b8c;
+  --text-inverse: #ffffff;
+
+  /* 边框 */
+  --border: #e2e5ee;
+  --border-strong: #cbd1df;
+
+  /* 语义色 */
+  --danger: #d92d20;
+  --danger-hover: #b42318;
+  --danger-soft: rgba(217, 45, 32, 0.08);
+  --success: #12805c;
+  --success-soft: rgba(18, 128, 92, 0.1);
+  --warning: #b54708;
+  --warning-soft: rgba(181, 71, 8, 0.1);
+
+  /* 遮罩与阴影 */
+  --overlay: rgba(15, 18, 25, 0.45);
+  --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.06);
+  --shadow-md: 0 10px 28px rgba(16, 24, 40, 0.12);
+  --shadow-lg: 0 24px 64px rgba(16, 24, 40, 0.2);
+
+  /* 圆角 */
+  --radius-xs: 6px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+  --radius-pill: 999px;
+
+  /* 间距 */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+
+  /* 字体 */
+  --font-sans: system-ui, -apple-system, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB',
+    'Microsoft YaHei', 'Noto Sans SC', sans-serif;
+  --font-mono: ui-monospace, 'SFMono-Regular', 'Cascadia Code', Consolas, 'Liberation Mono',
+    monospace;
+
+  --text-xs: 12px;
+  --text-sm: 13px;
+  --text-base: 15px;
+  --text-lg: 17px;
+  --text-xl: 20px;
+  --text-2xl: 26px;
+  --text-3xl: 34px;
+
+  /* 布局尺寸 */
+  --topbar-height: 64px;
+  --content-max: 1280px;
+  --hero-max: 720px;
+  --sidebar-width: 380px;
+
+  /* 动效 */
+  --transition-fast: 140ms ease;
+  --transition-base: 200ms ease;
+  --transition-slow: 320ms ease;
+
+  /* 层级 */
+  --z-topbar: 100;
+  --z-popover: 200;
+  --z-overlay: 300;
+  --z-modal: 310;
+  --z-toast: 400;
+}
+
+@media (max-width: 768px) {
+  :root {
+    --topbar-height: 56px;
+  }
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+
+  --brand: #6d8cff;
+  --brand-hover: #8aa2ff;
+  --brand-active: #5a7bff;
+  --brand-soft: rgba(109, 140, 255, 0.14);
+  --brand-soft-strong: rgba(109, 140, 255, 0.24);
+  --brand-contrast: #0b1020;
+
+  --bg: #0f1115;
+  --bg-subtle: #141821;
+  --bg-elevated: #1a1f2b;
+  --bg-inset: #10141c;
+  --surface: #171c26;
+  --surface-hover: #1f2532;
+  --surface-active: #273041;
+
+  --text: #f0f2f7;
+  --text-secondary: #c3cad8;
+  --text-muted: #8c95a8;
+  --text-inverse: #0b1020;
+
+  --border: #262d3b;
+  --border-strong: #3a4356;
+
+  --danger: #ff6b60;
+  --danger-hover: #ff8a80;
+  --danger-soft: rgba(255, 107, 96, 0.12);
+  --success: #4ade9f;
+  --success-soft: rgba(74, 222, 159, 0.12);
+  --warning: #f5b455;
+  --warning-soft: rgba(245, 180, 85, 0.12);
+
+  --overlay: rgba(0, 0, 0, 0.62);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 10px 28px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 24px 64px rgba(0, 0, 0, 0.6);
+}
