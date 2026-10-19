@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onMounted, ref, useId, watch } from 'vue'
 
 import AiModeToggle from '@/components/search/AiModeToggle.vue'
 import EngineButton from '@/components/search/EngineButton.vue'
@@ -9,6 +9,7 @@ import { useQueryRoute } from '@/composables/useQueryRoute'
 import { useSearch } from '@/composables/useSearch'
 import { useViewTransition } from '@/composables/useViewTransition'
 import { MAX_QUERY_LENGTH, countQueryChars, validateQuery } from '@/lib/query'
+import { addSearchHistory, readSearchHistory } from '@/lib/searchHistory'
 
 /**
  * 搜索框（PLAN 3.2）。
@@ -36,6 +37,10 @@ const { error: searchError, awaitingKey, retry } = useSearch()
 
 const inputRef = ref<HTMLInputElement | null>(null)
 const value = ref(query.value)
+/** 原生 datalist 的唯一 id（首页/顶栏共用组件但不会同时存在） */
+const historyListId = `site-search-history-${useId()}`
+/** 最近提交的搜索词，交给浏览器原生 datalist 展示 */
+const history = ref<string[]>([])
 /** 提交失败时的行内提示（长度超限的提示实时计算） */
 const submitHint = ref('')
 
@@ -71,6 +76,8 @@ function submit(): void {
   }
   const next = value.value.trim()
   submitHint.value = ''
+  // 只有通过校验并实际提交的查询才写入历史，避免半截输入污染 datalist
+  history.value = addSearchHistory(next)
   if (next === query.value) {
     // 同一 q 再次提交：页内错误或等待 API Key 时视为重试（QA P3-5），
     // 失败后可重新发起请求 / 重新打开 Key 弹窗；其余情况保持静默失焦。
@@ -91,6 +98,7 @@ function submit(): void {
 }
 
 onMounted(() => {
+  history.value = readSearchHistory()
   if (!props.autofocus) return
   // 移动端不自动聚焦（PLAN 3.8）
   const isNarrow = typeof window.matchMedia === 'function' && window.matchMedia('(max-width: 768px)').matches
@@ -116,7 +124,8 @@ onMounted(() => {
           aria-label="搜索内容"
           :aria-invalid="overLimit || undefined"
           :aria-describedby="hintMessage ? hintId : undefined"
-          autocomplete="off"
+          :list="historyListId"
+          autocomplete="on"
           autocapitalize="off"
           spellcheck="false"
           enterkeyhint="search"
@@ -145,6 +154,10 @@ onMounted(() => {
         <HelpPopover />
       </div>
     </form>
+
+    <datalist :id="historyListId">
+      <option v-for="item in history" :key="item" :value="item"></option>
+    </datalist>
 
     <p v-if="hintMessage" :id="hintId" class="search-bar__hint" role="status">
       {{ hintMessage }}

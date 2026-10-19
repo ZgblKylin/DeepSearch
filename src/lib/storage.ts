@@ -8,6 +8,7 @@
 export const STORAGE_KEYS = {
   settings: 'deepsearch.settings.v1',
   usage: 'deepsearch.usage.v1',
+  history: 'deepsearch.history.v1',
 } as const
 
 export type StorageKey = (typeof STORAGE_KEYS)[keyof typeof STORAGE_KEYS]

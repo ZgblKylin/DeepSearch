@@ -3,6 +3,7 @@ import { ref } from 'vue'
 
 import Icon from '@/components/ui/Icon.vue'
 import { useQueryRoute } from '@/composables/useQueryRoute'
+import { clearSearchHistory } from '@/lib/searchHistory'
 import { useSettings } from '@/stores/settings'
 import { useUi } from '@/stores/ui'
 import { useUsage } from '@/stores/usage'
@@ -10,7 +11,7 @@ import { useUsage } from '@/stores/usage'
 /**
  * 设置面板 · 危险操作（PLAN 3.6）：
  * - 清空数据使用危险色 + 二次确认；
- * - 清空 API Key、全部设置与本机统计；
+ * - 清空 API Key、全部设置、搜索历史与本机统计；
  * - 主题恢复为跟随系统，并返回首页。
  */
 const { resetAll } = useSettings()
@@ -23,6 +24,7 @@ const confirming = ref(false)
 function clearEverything(): void {
   resetAll()
   clearAll()
+  clearSearchHistory()
   confirming.value = false
   closeSettings()
   goHome()
@@ -36,7 +38,7 @@ function clearEverything(): void {
       <h3 id="settings-danger-title" class="settings-section__title">危险操作</h3>
     </div>
     <p class="settings-section__desc">
-      清空本机保存的 API Key、全部设置与统计数据，操作不可撤销。
+      清空本机保存的 API Key、全部设置、搜索历史与统计数据，操作不可撤销。
     </p>
 
     <div v-if="!confirming" class="settings-inline">

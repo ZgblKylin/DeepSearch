@@ -74,3 +74,10 @@
 - 用户要求：构建输出路径改为 `docs`，从 `.gitignore` 中移除 `dist/`，其他忽略项仍由 `.gitignore` 管理，以 GitHub Pages 的 `/docs` 作为部署目录。
 - 已完成：Vite `build.outDir` 改为 `docs` 且 `emptyOutDir: false`，避免清空已有项目文档与 QA 截图；`verify-singlefile.mjs` 改为校验 `docs/index.html`、禁止独立 `assets` 目录；新增 `docs/.nojekyll`；README 更新 GitHub Pages 与 Cloudflare Pages 输出目录；`.gitignore` 保留 `.env`、`node_modules/`、缓存等规则并移除 `dist/`。
 - 验证：`npm run build` 生成 `docs/index.html` 340,023 字节，项目文档与截图保留；`npm run verify:singlefile` 9/9 通过；GitHub Pages 入口为 `main` 分支 `/docs` 目录。
+
+## 2026-10-20 / 第 12 轮：搜索输入历史
+
+- 用户要求：搜索输入框自动记忆历史输入，并询问是否浏览器原生支持即可。
+- 判断：SPA 使用 `@submit.prevent`，浏览器表单历史不会稳定保存；改用浏览器原生 `datalist` 展示本地历史，不引入自绘下拉组件。
+- 已完成：新增 `src/lib/searchHistory.ts` 与 `deepsearch.history.v1` 存储键；SearchBar 提交合法查询后记录最近 10 条，输入框绑定 `list` 与 `autocomplete="on"`；清空数据时同时删除历史；README/PLAN 补充说明。
+- 验证：typecheck 通过；新增 5 项搜索历史测试，全套 204/204 通过；build 成功，`docs/index.html` 340,787 字节；单文件校验 9/9；生产预览中提交查询后 localStorage 与 datalist 选项均正确写入。

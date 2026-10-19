@@ -53,11 +53,12 @@
 - 搜索框结构：搜索图标 + 输入框 + AI 模式胶囊开关（默认开启） + 搜索按钮；搜索按钮右侧依次为外部搜索引擎按钮（只显示 logo）和帮助图标（线条圆圈问号）。
 - 外部引擎默认 Bing，可配置 Google、百度、DuckDuckGo；使用 `<a target="_blank" rel="noopener noreferrer">`，空查询禁用。
 - 帮助图标 hover 延迟打开，点击固定，点击外部或 Esc 关闭；内容列出全部搜索语法与示例，链接官方文档。
-- 首页有简短标语；不展示历史、推荐或广告。
+- 搜索框使用浏览器原生 datalist 提供最近 10 条提交搜索词的建议；历史保存于 localStorage，可在设置中随“清空数据”一并清除。
+- 首页有简短标语；不展示推荐或广告。
 
 ### 3.3 结果页
 
-- 最大宽度约 1280px；桌面“结果列 + 右侧 AI 侧边栏”，侧边栏约 380px 且 sticky；移动端单列，AI 面板为可折叠卡片。
+- 最大宽度约 1280px；桌面“结果列 + 右侧 AI 侧边栏”，侧边栏约 440px 且 sticky；移动端单列，AI 面板为可折叠卡片。
 - 结果顶部显示条数、耗时、当前排序；下方是筛选项栏。
 - 加载时显示骨架卡片和“正在搜索 ···”三点动画；旧结果立即清空。
 - 结果卡片：标题、域名、站点名、日期、snippet、相关度分数（两位小数）、优质/权威徽标；标题和 URL 新标签页打开。
@@ -115,7 +116,7 @@
 - 外部搜索引擎：Bing、Google、百度、DuckDuckGo 卡片单选，默认 Bing。
 - 本机数据统计：搜索次数、抓取次数、Token 总消耗、预估 API 花费；模型维度输入命中/未命中/输出/高峰/空闲费用；Search/Fetch 计费；价格说明。
 - 清零用量：二次确认，仅清统计。
-- 清空数据：危险色 + 二次确认，清空 Key、设置、统计；主题回系统；回首页。
+- 清空数据：危险色 + 二次确认，清空 Key、设置、搜索历史与统计；主题回系统；回首页。
 - 测试连接使用当前输入框 Key 调 `GET /models`；成功显示模型数与耗时；失败弹错误弹窗并在区块内保留红色状态。
 - 模型/挡位/条数下次生效；排序立即重排已有结果；引擎立即生效。
 - 费用按请求完成时的北京时间判定峰谷；Search/Fetch 仅成功且非空计费。
@@ -187,6 +188,7 @@ localStorage：
 
 - `deepsearch.settings.v1`
 - `deepsearch.usage.v1`
+- `deepsearch.history.v1`（最近 10 条主动提交的搜索词，供原生 datalist 使用）
 
 默认设置：
 
@@ -325,7 +327,7 @@ testApiKey(key): Promise<{ models: string[]; elapsedMs: number }>
 ### 9.1 共享类型与存储
 
 - `src/types.ts` 导出 `ThemeMode`、`ResolvedTheme`、`AiModel`（`deepseek-flash` / `deepseek-v4-pro`）、`ReasoningEffort`（`off` | `low` | `high` | `max`；UI 文案为“关闭/低/高/最高”，API 层在 `off` 时发送 `thinking: { type: 'disabled' }` 并省略 `reasoning_effort`，不存在 `none` 值）、`SortMode`、`EngineId`、`Settings`、`DEFAULT_SETTINGS`、`SearchResult`、`ChatMessage`、`ChatUsage`、`ChatResult`、`UsageStats`、`ModelUsage`、`AiPhase`、`AiSource`、`ApiErrorView`、toast/modal 状态类型与各枚举常量。
-- 两个存储键在 `src/lib/storage.ts` 导出 `STORAGE_KEYS`；settings/usage 直接以 JSON 对象存储（无包装层）。`readJson`/`writeJson`/`removeStorage` 在 localStorage 不可用时静默降级。
+- 三个存储键在 `src/lib/storage.ts` 导出 `STORAGE_KEYS`；settings/usage/history 直接以 JSON 存储（无包装层）。`readJson`/`writeJson`/`removeStorage` 在 localStorage 不可用时静默降级。
 - `Settings` 校验规则（`normalizeSettings`，已导出供测试）：未知键丢弃；非法值回退默认；`resultCount` 取整并收敛到 1–50；`apiKey` 去首尾空白；`aiModel` 别名 `deepseek-v4-flash` → `deepseek-flash`。
 - `UsageStats`：`searches`/`fetches` 为成功请求次数（失败不计入），`searchBillable`/`fetchBillable` 为成功且非空（计费）次数；`models` 按模型名聚合；`updatedAt` 为 epoch 毫秒。
 

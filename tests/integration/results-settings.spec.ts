@@ -7,6 +7,7 @@ import ResultsHeader from '@/components/results/ResultsHeader.vue'
 import ResultsList from '@/components/results/ResultsList.vue'
 import SettingsPanel from '@/components/settings/SettingsPanel.vue'
 import { useSearch } from '@/composables/useSearch'
+import { STORAGE_KEYS } from '@/lib/storage'
 import { useSettings } from '@/stores/settings'
 import { useUi } from '@/stores/ui'
 import { useUsage } from '@/stores/usage'
@@ -197,6 +198,7 @@ describe('设置面板：清空数据', () => {
     settingsStore.update({ apiKey: 'sk-secret', theme: 'dark', resultCount: 20 })
     usageStore.recordSearch(4)
     usageStore.recordChat('deepseek-flash', chatUsage(10, 10, 10), PEAK_TIME)
+    localStorage.setItem(STORAGE_KEYS.history, JSON.stringify(['deepseek']))
     window.history.replaceState(null, '', '/?q=deepseek')
 
     wrapper = mount(SettingsPanel, {
@@ -225,6 +227,7 @@ describe('设置面板：清空数据', () => {
     expect(settingsStore.settings.resultCount).toBe(10)
     expect(usageStore.usage.searches).toBe(0)
     expect(usageStore.usage.models).toEqual({})
+    expect(localStorage.getItem(STORAGE_KEYS.history)).toBeNull()
     expect(window.location.search).toBe('')
     expect(uiStore.ui.settingsOpen).toBe(false)
     expect(uiStore.ui.toast.visible).toBe(true)
