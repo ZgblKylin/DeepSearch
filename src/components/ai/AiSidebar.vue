@@ -1,19 +1,17 @@
 <script setup lang="ts">
 /**
- * AI 侧边栏（PLAN 3.5）：
+ * AI 对话侧边栏。
  *
- * - 桌面端由结果页布局提供 sticky 容器，本组件是卡片本体；移动端可折叠；
- * - 状态机来自 useAi 单例：idle → summarizing → ready → followup-loading →
- *   followup-ready / error；
- * - 关闭 AI 模式（settings.aiMode = false）时直接隐藏，请求中止由 T5 调用 abort；
- * - 同一次搜索再次开启时 T5 重新调用 summarize，useAi 内部复用已有摘要。
+ * - 标题固定为“AI 对话”；
+ * - 搜索结果摘要作为对话线程的第一条助手消息；
+ * - 输入框在摘要生成后直接可用，用户无需再点单独的追问按钮；
+ * - 结果卡片上的“AI 追问”会重置本会话并生成基于该网页的第一条消息。
  */
 import { computed, ref } from 'vue'
 
 import { useAi } from '@/composables/useAi'
 import { useSettings } from '@/stores/settings'
 import AiChat from './AiChat.vue'
-import AiSummary from './AiSummary.vue'
 import Icon from '@/components/ui/Icon.vue'
 import LoadingDots from '@/components/ui/LoadingDots.vue'
 
@@ -21,17 +19,15 @@ const { settings } = useSettings()
 const {
   phase,
   mode,
-  summary,
   messages,
   sources,
   error,
   notice,
-  fetchProgress,
   fetching,
   asking,
+  fetchProgress,
   excellentCount,
   authorityCount,
-  startFollowup,
   ask,
   retry,
 } = useAi()
@@ -40,22 +36,33 @@ const {
 const collapsed = ref(false)
 
 const visible = computed(() => settings.aiMode && phase.value !== 'idle')
-const isFollowup = computed(() => mode.value === 'followup')
+
+const loadingLabel = computed(() => {
+  if (phase.value === 'summarizing') return '正在生成 AI 摘要'
+  if (fetching.value && fetchProgress.total > 0) {
+    const current = Math.min(fetchProgress.completed + 1, fetchProgress.total)
+    return `正在读取网页 ${current}/${fetchProgress.total}`
+  }
+  return '正在生成网页摘要'
+})
 </script>
 
 <template>
-  <aside v-if="visible" class="ai-sidebar" aria-label="AI 摘要">
+  <aside v-if="visible" class="ai-sidebar" aria-label="AI 对话">
     <div class="ai-sidebar__card">
       <header class="ai-sidebar__header">
         <div class="ai-sidebar__brand">
           <Icon name="sparkles" :size="16" />
-          <span class="ai-sidebar__title">{{ isFollowup ? 'AI 追问' : 'AI 摘要' }}</span>
+          <span class="ai-sidebar__title">AI 对话</span>
+          <span v-if="sources.length > 0" class="ai-sidebar__source-count">
+            基于 {{ sources.length }} 个来源
+          </span>
         </div>
         <button
           type="button"
           class="icon-btn ai-sidebar__toggle"
           :aria-expanded="!collapsed"
-          :aria-label="collapsed ? '展开 AI 面板' : '收起 AI 面板'"
+          :aria-label="collapsed ? '展开 AI 对话' : '收起 AI 对话'"
           @click="collapsed = !collapsed"
         >
           <Icon :name="collapsed ? 'chevron-down' : 'chevron-up'" :size="16" />
@@ -64,14 +71,14 @@ const isFollowup = computed(() => mode.value === 'followup')
 
       <div v-show="!collapsed" class="ai-sidebar__body">
         <div
-          v-if="phase === 'summarizing'"
+          v-if="phase === 'summarizing' || phase === 'followup-loading'"
           class="ai-sidebar__loading"
           role="status"
           aria-live="polite"
         >
           <div class="ai-sidebar__loading-row">
-            <LoadingDots label="正在生成 AI 摘要" />
-            <span>正在生成 AI 摘要</span>
+            <LoadingDots :label="loadingLabel" />
+            <span>{{ loadingLabel }}</span>
           </div>
           <div class="ai-sidebar__skeleton" aria-hidden="true">
             <span class="ai-sidebar__skeleton-line"></span>
@@ -81,13 +88,13 @@ const isFollowup = computed(() => mode.value === 'followup')
         </div>
 
         <div
-          v-else-if="phase === 'error' && mode === 'summary'"
+          v-else-if="phase === 'error' && messages.length === 0"
           class="ai-sidebar__error"
           role="alert"
         >
           <Icon name="alert-circle" :size="18" />
           <div class="ai-sidebar__error-body">
-            <p class="ai-sidebar__error-title">AI 摘要生成失败</p>
+            <p class="ai-sidebar__error-title">AI 对话生成失败</p>
             <p class="ai-sidebar__error-text">{{ error }}</p>
             <button type="button" class="btn btn--outline btn--sm" @click="retry">
               <Icon name="refresh-cw" :size="13" />
@@ -96,30 +103,27 @@ const isFollowup = computed(() => mode.value === 'followup')
           </div>
         </div>
 
-        <AiSummary
-          v-else-if="phase === 'ready' && mode === 'summary'"
-          :content="summary"
-          :sources="sources"
-          :excellent-count="excellentCount"
-          :authority-count="authorityCount"
-          @followup="startFollowup"
-        />
-
         <AiChat
-          v-else-if="mode === 'followup'"
+          v-else-if="messages.length > 0"
           :phase="phase"
           :messages="messages"
           :sources="sources"
-          :fetching="fetching"
-          :fetch-completed="fetchProgress.completed"
-          :fetch-total="fetchProgress.total"
           :notice="notice"
           :asking="asking"
           :error="error"
+          :show-summary-tags="mode === 'summary'"
+          :excellent-count="excellentCount"
+          :authority-count="authorityCount"
           @ask="ask"
-          @restart="startFollowup"
           @retry="retry"
         />
+
+        <div v-else class="ai-sidebar__loading" role="status">
+          <div class="ai-sidebar__loading-row">
+            <LoadingDots label="正在准备 AI 对话" />
+            <span>正在准备 AI 对话</span>
+          </div>
+        </div>
 
         <p class="ai-sidebar__disclaimer">AI 生成，仅供参考</p>
       </div>
@@ -154,8 +158,9 @@ const isFollowup = computed(() => mode.value === 'followup')
 
 .ai-sidebar__brand {
   display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-1) var(--space-2);
   color: var(--brand);
   min-width: 0;
 }
@@ -164,6 +169,13 @@ const isFollowup = computed(() => mode.value === 'followup')
   color: var(--text);
   font-size: var(--text-sm);
   font-weight: 700;
+  white-space: nowrap;
+}
+
+.ai-sidebar__source-count {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  font-weight: 400;
   white-space: nowrap;
 }
 

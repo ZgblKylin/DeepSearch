@@ -95,11 +95,12 @@
 - 使用配置模型与思考挡位；默认 `deepseek-flash`、`high`；非流式，`max_tokens: 4096`，超时 120 秒。
 - 系统提示：只依据结果、不编造、使用查询主要语言、先结论后要点、用 `[n]` 引用、不要输出思考过程、约 600 字。
 - Markdown 经 DOMPurify 清洗；禁止 `img`、`iframe`、`object`、`style`、表单；链接加 `noopener noreferrer`；`[n]` 转为来源 URL 上标链接。
-- 摘要底部一行：左侧“优质 N”（`rerank_score >= 1.5`）与“权威 N”（`authority >= 3`），右侧“AI 追问”按钮。
-- 点击“AI 追问”：重置会话，用 Fetch API 读取按 `rerank_score` 排序的前 3 条唯一 URL，每条截断 6000 字符，总量上限 18000 字符；显示“正在读取网页 2/3”。
-- Fetch 部分失败用搜索摘要补位并提示；全部失败弹一次错误弹窗并回退，不阻塞追问。
-- 读取完成后调用 Chat API 生成新的追问背景摘要，作为新会话第一条 assistant 消息；之后支持多轮对话，历史只保留 `content`，不回传 `reasoning_content`。
-- 追问模式头部显示来源数量与“重新开始”；原摘要标签行不再显示。
+- 侧边栏标题为“AI 对话”；初始摘要作为对话线程的第一条助手消息，标签行显示“优质 N”（`rerank_score >= 1.5`）与“权威 N”（`authority >= 3`）。
+- 摘要生成后输入框直接可用，可基于同一批搜索结果继续多轮问答；不再提供单独的“AI 追问”按钮。
+- 每条搜索结果标题区域（相关度旁）提供“AI 追问”按钮；点击后重置会话，用 Fetch API 读取该条 URL 的正文（单条截断 6000 字符），并显示读取进度。
+- Fetch 失败用该结果的搜索摘要补位并提示；失败请求弹错误弹窗，不阻塞新会话生成。
+- 调用 Chat API 生成新会话第一条 assistant 消息；之后支持多轮对话，历史只保留 `content`，不回传 `reasoning_content`。
+- 结果网页会话不显示搜索摘要标签行；初始摘要追问与结果网页追问都使用同一对话线程。
 - 关闭 AI 模式时中止摘要请求并隐藏面板；同一次搜索结果再次开启复用已有摘要；新搜索重置 AI 会话。
 - 自动摘要失败时结果保留，侧边栏错误 + 重试；Key/余额等错误同时弹全局错误弹窗。
 - 面板显示“AI 生成，仅供参考”。
@@ -252,7 +253,7 @@ docs/{PLAN.md, PROGRESS.md, SUMMARY.md, qa/*}
 - `useUi()`：`apiKeyModal`、`errorModal`、`settingsOpen`、`toast` 状态；`requireApiKey(action)`、`showError(error, context)`、`openSettings()`、`showToast(message)`。
 - `useQueryRoute()`：`query`、`navigate(q)`、`goHome()`、`syncFromLocation()`。
 - `useSearch()`：`query`、`results`、`loading`、`error`、`elapsedMs`、`run(q)`、`cancel()`、`retry()`。
-- `useAi()`：`phase`（`idle`/`summarizing`/`ready`/`followup-loading`/`followup-ready`/`error`）、`messages`、`sources`、`error`、`summarize()`、`startFollowup()`、`ask(text)`、`reset()`、`abort()`。
+- `useAi()`：`phase`（`idle`/`summarizing`/`ready`/`followup-loading`/`followup-ready`/`error`）、`messages`、`sources`、`error`、`summarize()`、`startFromResult(result)`、`ask(text)`、`reset()`、`abort()`、`retry()`。
 - `useUsage()`：`usage`、`recordSearch(resultCount)`、`recordFetch(success)`、`recordChat(model, usage)`、`resetUsage()`、`clearAll()`。
 
 API 客户端（`src/lib/api.ts`）：

@@ -4,8 +4,10 @@
  * 状态机：
  *
  * ```
- * idle ──summarize()──▶ summarizing ──成功──▶ ready ──startFollowup()──▶
- * followup-loading ──Fetch + 背景摘要成功──▶ followup-ready
+ * idle ──summarize()──▶ summarizing ──成功──▶ ready（摘要作为第一条消息，可直接问答）
+ *                                           │
+ *                                           └─ 结果卡片 startFromResult() ─▶ followup-loading
+ *                                              ──Fetch + 摘要成功──▶ followup-ready（可继续问答）
  *   ▲                                            │
  *   └──────────── error（可 retry）◀──────────────┘
  * ```
@@ -25,8 +27,7 @@ import {
   buildAskMessages,
   buildFollowupContext,
   buildSummaryContext,
-  selectFollowupResults,
-  toSources,
+  SUMMARY_CHAT_SYSTEM_PROMPT,
   type FollowupDocument,
 } from '@/lib/aiContext'
 import { chatCompletion, fetchPage } from '@/lib/api'
@@ -67,6 +68,8 @@ let baseMessages: ChatMessage[] = []
 /** 当前会话对应的搜索结果指纹，用于“同一次搜索复用摘要” */
 let sessionKey = ''
 let errorKind: AiErrorKind | null = null
+/** 最近一次由结果卡片触发的网页，用于失败重试 */
+let lastResult: SearchResult | null = null
 
 const excellentCount = computed(
   () => resultsSnapshot.value.filter((result) => result.rerank_score >= 1.5).length,
@@ -146,6 +149,7 @@ function resetState(): void {
   baseMessages = []
   sessionKey = ''
   errorKind = null
+  lastResult = null
 }
 
 /**
@@ -161,8 +165,9 @@ function canReuseSession(key: string): boolean {
     mode.value = 'summary'
     error.value = ''
     errorKind = null
-    messages.value = []
-    baseMessages = []
+    messages.value = summary.value.trim()
+      ? [{ role: 'assistant', content: summary.value }]
+      : []
     notice.value = ''
     return true
   }
@@ -195,6 +200,7 @@ async function doSummarize(): Promise<void> {
 
   const context = buildSummaryContext(query, results)
   sources.value = context.sources
+  baseMessages = context.messages
 
   const request = beginRequest()
   phase.value = 'summarizing'
@@ -213,6 +219,7 @@ async function doSummarize(): Promise<void> {
     if (!content) throw emptyResponseError()
     summary.value = content
     sources.value = context.sources
+    messages.value = [{ role: 'assistant', content }]
     phase.value = 'ready'
     recordChatResult(result.model || settings.aiModel, result.usage)
   } catch (caught) {
@@ -224,15 +231,14 @@ async function doSummarize(): Promise<void> {
   }
 }
 
-/** 进入追问模式（内部实现，已确认有 Key） */
-async function doStartFollowup(): Promise<void> {
+/** 基于单条搜索结果进入对话（内部实现，已确认有 Key） */
+async function doStartResult(focus: SearchResult): Promise<void> {
   const { query, results } = readSearchSnapshot()
-  if (results.length === 0) return
-
-  const key = makeSessionKey(query, results)
-  sessionKey = key
+  lastResult = focus
+  sessionKey = ''
   resultsSnapshot.value = results
   mode.value = 'followup'
+  summary.value = ''
   messages.value = []
   baseMessages = []
   sources.value = []
@@ -242,63 +248,44 @@ async function doStartFollowup(): Promise<void> {
   asking.value = false
   fetching.value = true
   fetchProgress.completed = 0
-  fetchProgress.total = 0
-
-  const selected = selectFollowupResults(results)
-  if (selected.length === 0) {
-    fetching.value = false
-    return
-  }
-  fetchProgress.total = selected.length
-  // 读取网页前先展示来源数量；材料拼装完成后会用 buildFollowupContext 的结果覆盖
-  sources.value = toSources(selected)
+  fetchProgress.total = 1
 
   const request = beginRequest()
   phase.value = 'followup-loading'
   const { settings } = useSettings()
-  const documents: FollowupDocument[] = []
-  const fetchErrors: unknown[] = []
+  const document: FollowupDocument = { result: focus, content: '', fetchFailed: true }
+  let fetchError: unknown = null
 
   try {
-    await Promise.all(
-      selected.map(async (result, index) => {
-        try {
-          const page = await fetchPage(settings.apiKey, result.url, request.signal)
-          const content = page.content.trim()
-          // usage 语义：success 表示“成功且正文非空”
-          useUsage().recordFetch(content.length > 0)
-          documents[index] = { result, content, fetchFailed: content.length === 0 }
-        } catch (caught) {
-          if (isAbortError(caught)) throw caught
-          useUsage().recordFetch(false)
-          fetchErrors.push(caught)
-          documents[index] = { result, content: '', fetchFailed: true }
-        } finally {
-          if (isCurrent(request.id)) {
-            fetchProgress.completed = Math.min(fetchProgress.completed + 1, selected.length)
-          }
-        }
-      }),
-    )
-
-    if (!isCurrent(request.id)) return
-    fetching.value = false
-
-    const context = buildFollowupContext(query, documents)
-    sources.value = context.sources
-    baseMessages = context.messages
-
-    if (context.fallbackCount > 0) {
-      notice.value =
-        context.fallbackCount === selected.length
-          ? '网页正文读取失败，已用搜索摘要补位。'
-          : `有 ${context.fallbackCount} 个网页读取失败，已用搜索摘要补位。`
+    const page = await fetchPage(settings.apiKey, focus.url, request.signal)
+    const content = page.content.trim()
+    // usage 语义：success 表示“成功且正文非空”
+    useUsage().recordFetch(content.length > 0)
+    document.content = content
+    document.fetchFailed = content.length === 0
+  } catch (caught) {
+    if (isAbortError(caught)) return
+    useUsage().recordFetch(false)
+    fetchError = caught
+  } finally {
+    if (isCurrent(request.id)) {
+      fetching.value = false
+      fetchProgress.completed = 1
     }
-    // 全部失败：只弹一次错误弹窗，然后用搜索摘要补位继续生成背景摘要
-    if (context.fallbackCount === selected.length && fetchErrors.length > 0) {
-      useUi().showError(fetchErrors[0], 'fetch')
-    }
+  }
 
+  if (!isCurrent(request.id)) return
+
+  const context = buildFollowupContext(query, [document])
+  sources.value = context.sources
+  baseMessages = context.messages
+
+  if (context.fallbackCount > 0) {
+    notice.value = '网页正文读取失败，已用搜索摘要补位。'
+    if (fetchError) useUi().showError(fetchError, 'fetch')
+  }
+
+  try {
     const result = await chatCompletion(settings.apiKey, {
       model: settings.aiModel,
       messages: context.messages,
@@ -326,7 +313,8 @@ async function doStartFollowup(): Promise<void> {
 /** 追问一轮（内部实现，已确认有 Key 且前置校验通过） */
 async function doAsk(question: string): Promise<void> {
   const text = question.trim()
-  if (!text || phase.value !== 'followup-ready' || asking.value) return
+  const canAskHere = phase.value === 'ready' || phase.value === 'followup-ready'
+  if (!text || !canAskHere || asking.value) return
 
   error.value = ''
   errorKind = null
@@ -336,7 +324,15 @@ async function doAsk(question: string): Promise<void> {
 
   const request = beginRequest()
   const { settings } = useSettings()
-  const questionMessages = buildAskMessages(baseMessages, history, text)
+  const base =
+    mode.value === 'summary'
+      ? baseMessages.map((message, index) =>
+          index === 0 && message.role === 'system'
+            ? { role: 'system' as const, content: SUMMARY_CHAT_SYSTEM_PROMPT }
+            : message,
+        )
+      : baseMessages
+  const questionMessages = buildAskMessages(base, history, text)
 
   try {
     const result = await chatCompletion(settings.apiKey, {
@@ -363,22 +359,32 @@ async function doAsk(question: string): Promise<void> {
 
 /** 生成初始摘要；无 Key 时先弹 Key 弹窗，保存后自动继续 */
 function summarize(): void {
+  // 由结果卡片发起的单网页会话优先；AI 开关重新打开时不覆盖当前对话
+  if (
+    mode.value === 'followup' &&
+    (phase.value === 'followup-loading' || phase.value === 'followup-ready' || asking.value)
+  ) {
+    return
+  }
   useUi().requireApiKey(() => {
     void doSummarize()
   })
 }
 
-/** 进入追问模式：重置会话 → Fetch 前 3 条唯一 URL → 生成新背景摘要 */
-function startFollowup(): void {
+/** 从结果卡片进入对话：重置聊天区域，Fetch 该网页并生成第一条回答 */
+function startFromResult(result: SearchResult): void {
   useUi().requireApiKey(() => {
-    void doStartFollowup()
+    const { settings, update } = useSettings()
+    if (!settings.aiMode) update({ aiMode: true })
+    void doStartResult(result)
   })
 }
 
 /** 发送一轮追问；Enter 发送、Shift+Enter 换行由输入组件处理 */
 function ask(text: string): void {
   const question = text.trim()
-  if (!question || asking.value || phase.value !== 'followup-ready') return
+  const canAskHere = phase.value === 'ready' || phase.value === 'followup-ready'
+  if (!question || asking.value || !canAskHere) return
   useUi().requireApiKey(() => {
     void doAsk(question)
   })
@@ -391,7 +397,8 @@ function retry(): void {
     return
   }
   if (errorKind === 'followup') {
-    startFollowup()
+    if (lastResult) startFromResult(lastResult)
+    else summarize()
     return
   }
   if (errorKind === 'ask') {
@@ -444,7 +451,7 @@ function abort(): void {
     }
     return
   }
-  if (wasAsking && phase.value === 'followup-ready') {
+  if (wasAsking && (phase.value === 'ready' || phase.value === 'followup-ready')) {
     const last = messages.value[messages.value.length - 1]
     if (last && last.role === 'user') {
       messages.value = messages.value.slice(0, -1)
@@ -474,7 +481,7 @@ export function useAi() {
     excellentCount,
     authorityCount,
     summarize,
-    startFollowup,
+    startFromResult,
     ask,
     reset,
     abort,

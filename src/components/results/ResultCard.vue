@@ -3,6 +3,7 @@ import { computed, ref, watch } from 'vue'
 
 import Icon from '@/components/ui/Icon.vue'
 import LetterAvatar from '@/components/ui/LetterAvatar.vue'
+import { useAi } from '@/composables/useAi'
 import { formatDate, formatScore } from '@/lib/format'
 import type { SearchResult } from '@/types'
 
@@ -11,8 +12,15 @@ import type { SearchResult } from '@/types'
  * 标题、域名、站点名、日期、snippet、相关度分数、优质/权威徽标。
  * 标题与 URL 均在新标签页打开；站点图标优先使用 API 返回的 `site_icon`，
  * 缺失、非法或加载失败时回退为本地字母头像。
+ * 标题区域右上角提供“AI 追问”，点击后基于该网页重置并开始 AI 对话。
  */
 const props = defineProps<{ result: SearchResult }>()
+
+const { startFromResult } = useAi()
+
+function askAi(): void {
+  startFromResult(props.result)
+}
 
 /** 图标加载失败后本次结果内不再重试，直接回退字母头像 */
 const iconFailed = ref(false)
@@ -102,6 +110,15 @@ const isAuthoritative = computed(
       <span class="result-card__score" :title="`相关度分数 ${result.rerank_score}`">
         相关度 {{ scoreText }}
       </span>
+      <button
+        type="button"
+        class="result-card__ai"
+        title="基于此网页进行 AI 追问"
+        @click="askAi"
+      >
+        <Icon name="sparkles" :size="12" />
+        <span>AI 追问</span>
+      </button>
     </div>
 
     <h3 class="result-card__title">
@@ -213,6 +230,30 @@ const isAuthoritative = computed(
   color: var(--text-muted);
   font-family: var(--font-mono);
   white-space: nowrap;
+}
+
+.result-card__ai {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--brand);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  line-height: 1.6;
+  white-space: nowrap;
+  transition:
+    background-color var(--transition-fast),
+    border-color var(--transition-fast);
+}
+
+.result-card__ai:hover {
+  border-color: var(--brand);
+  background: var(--brand-soft);
 }
 
 .result-card__title {

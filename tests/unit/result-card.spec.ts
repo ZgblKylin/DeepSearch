@@ -42,6 +42,7 @@ describe('ResultCard 站点图标', () => {
 
     expect(wrapper.find('img.result-card__icon').exists()).toBe(false)
     expect(wrapper.find('.letter-avatar').exists()).toBe(true)
+    expect(wrapper.find('.result-card__ai').text()).toContain('AI 追问')
   })
 
   it('site_icon 使用非 http(s) 协议时回退字母头像', () => {

@@ -1,14 +1,14 @@
 <script setup lang="ts">
 /**
- * AI 追问会话（PLAN 3.5）：
- * - 头部显示来源数量与“重新开始”；
- * - Fetch 阶段显示“正在读取网页 n/3”，随后显示背景摘要生成进度；
- * - 多轮对话：Enter 发送、Shift+Enter 换行，加载中禁用输入；
- * - 错误内联展示并可重试。
+ * AI 对话线程：第一条助手消息是搜索摘要，之后直接在同一线程中追问。
+ *
+ * 结果卡片上的“AI 追问”按钮会在外层重置会话并生成新的第一条消息；
+ * 本组件只负责渲染消息、标签、输入框与错误重试。
  */
 import { computed, nextTick, ref, watch } from 'vue'
 
 import type { AiPhase, AiSource, ChatMessage } from '@/types'
+import AiSummary from './AiSummary.vue'
 import ChatMessageView from './ChatMessage.vue'
 import Icon from '@/components/ui/Icon.vue'
 import LoadingDots from '@/components/ui/LoadingDots.vue'
@@ -18,31 +18,32 @@ const props = withDefaults(
     phase: AiPhase
     messages: readonly ChatMessage[]
     sources?: readonly AiSource[]
-    /** 是否正在读取网页 */
-    fetching?: boolean
-    fetchCompleted?: number
-    fetchTotal?: number
     /** 部分网页读取失败等提示 */
     notice?: string
     /** 是否正在等待 AI 回答 */
     asking?: boolean
     /** 追问阶段的错误文案 */
     error?: string
+    /** 第一条助手消息是否显示搜索摘要标签行 */
+    showSummaryTags?: boolean
+    /** rerank_score >= 1.5 的结果数 */
+    excellentCount?: number
+    /** authority >= 3 的结果数 */
+    authorityCount?: number
   }>(),
   {
     sources: () => [],
-    fetching: false,
-    fetchCompleted: 0,
-    fetchTotal: 0,
     notice: '',
     asking: false,
     error: '',
+    showSummaryTags: false,
+    excellentCount: 0,
+    authorityCount: 0,
   },
 )
 
 const emit = defineEmits<{
   ask: [text: string]
-  restart: []
   retry: []
 }>()
 
@@ -50,16 +51,11 @@ const draft = ref('')
 const composing = ref(false)
 const threadEl = ref<HTMLElement | null>(null)
 
-const loading = computed(() => props.phase === 'followup-loading')
-const canAsk = computed(() => props.phase === 'followup-ready' && !props.asking)
-const canRestart = computed(() => !loading.value && !props.asking)
-
-const loadingLabel = computed(() => {
-  if (!props.fetching) return '正在生成追问摘要'
-  if (props.fetchTotal <= 0) return '正在读取网页'
-  const current = Math.min(props.fetchCompleted + 1, props.fetchTotal)
-  return `正在读取网页 ${current}/${props.fetchTotal}`
-})
+const canAsk = computed(
+  () =>
+    (props.phase === 'ready' || props.phase === 'followup-ready') &&
+    !props.asking,
+)
 
 function scrollToBottom(): void {
   const element = threadEl.value
@@ -76,7 +72,7 @@ watch(
 )
 
 function submit(): void {
-  if (!canAsk.value || props.asking) return
+  if (!canAsk.value) return
   const text = draft.value.trim()
   if (!text) return
   draft.value = ''
@@ -101,42 +97,28 @@ function onCompositionEnd(): void {
 </script>
 
 <template>
-  <section class="ai-chat" aria-label="AI 追问">
-    <header class="ai-chat__header">
-      <div class="ai-chat__heading">
-        <span class="ai-chat__title">AI 追问</span>
-        <span v-if="sources.length > 0" class="ai-chat__source-count">
-          共 {{ sources.length }} 个来源
-        </span>
-      </div>
-      <button
-        type="button"
-        class="btn btn--ghost btn--sm ai-chat__restart"
-        :disabled="!canRestart"
-        @click="emit('restart')"
-      >
-        <Icon name="rotate-ccw" :size="14" />
-        <span>重新开始</span>
-      </button>
-    </header>
-
+  <section class="ai-chat" aria-label="AI 对话">
     <p v-if="notice" class="ai-chat__notice" role="status">
       <Icon name="info" :size="14" />
       <span>{{ notice }}</span>
     </p>
 
-    <p v-if="loading" class="ai-chat__progress" role="status" aria-live="polite">
-      <LoadingDots size="sm" :label="loadingLabel" />
-      <span>{{ loadingLabel }}</span>
-    </p>
-
     <div ref="threadEl" class="ai-chat__thread" aria-live="polite">
-      <ChatMessageView
-        v-for="(message, index) in messages"
-        :key="`${index}-${message.role}`"
-        :message="message"
-        :sources="sources"
-      />
+      <template v-for="(message, index) in messages" :key="`${index}-${message.role}`">
+        <div
+          v-if="index === 0 && showSummaryTags && message.role === 'assistant'"
+          class="ai-chat__first"
+        >
+          <div class="ai-chat__avatar" aria-hidden="true">AI</div>
+          <AiSummary
+            :content="message.content"
+            :sources="sources"
+            :excellent-count="excellentCount"
+            :authority-count="authorityCount"
+          />
+        </div>
+        <ChatMessageView v-else :message="message" :sources="sources" />
+      </template>
 
       <div v-if="asking" class="ai-chat__pending" role="status" aria-label="AI 正在回答">
         <span class="ai-chat__pending-avatar" aria-hidden="true">AI</span>
@@ -144,7 +126,7 @@ function onCompositionEnd(): void {
       </div>
     </div>
 
-    <div v-if="error && !loading" class="ai-chat__error" role="alert">
+    <div v-if="error && !asking" class="ai-chat__error" role="alert">
       <Icon name="alert-circle" :size="16" />
       <p class="ai-chat__error-text">{{ error }}</p>
       <button type="button" class="btn btn--outline btn--sm" @click="emit('retry')">
@@ -159,8 +141,8 @@ function onCompositionEnd(): void {
         class="input ai-chat__input"
         rows="2"
         :disabled="!canAsk"
-        :placeholder="canAsk ? '继续追问…（Enter 发送，Shift+Enter 换行）' : '正在准备追问上下文…'"
-        aria-label="追问输入框"
+        :placeholder="canAsk ? '继续对话…（Enter 发送，Shift+Enter 换行）' : '正在生成回答…'"
+        aria-label="对话输入框"
         @keydown="onKeydown"
         @compositionstart="onCompositionStart"
         @compositionend="onCompositionEnd"
@@ -169,7 +151,7 @@ function onCompositionEnd(): void {
         type="submit"
         class="btn btn--primary ai-chat__send"
         :disabled="!canAsk || !draft.trim()"
-        aria-label="发送追问"
+        aria-label="发送消息"
       >
         <Icon name="send" :size="16" />
       </button>
@@ -182,37 +164,6 @@ function onCompositionEnd(): void {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
-}
-
-.ai-chat__header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-2);
-}
-
-.ai-chat__heading {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: var(--space-1) var(--space-2);
-  min-width: 0;
-}
-
-.ai-chat__title {
-  color: var(--text);
-  font-size: var(--text-sm);
-  font-weight: 700;
-}
-
-.ai-chat__source-count {
-  color: var(--text-muted);
-  font-size: var(--text-xs);
-}
-
-.ai-chat__restart {
-  flex: 0 0 auto;
-  gap: 4px;
 }
 
 .ai-chat__notice {
@@ -232,17 +183,6 @@ function onCompositionEnd(): void {
   margin-top: 2px;
 }
 
-.ai-chat__progress {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius-sm);
-  background: var(--bg-subtle);
-  color: var(--text-secondary);
-  font-size: var(--text-xs);
-}
-
 .ai-chat__thread {
   display: flex;
   flex-direction: column;
@@ -250,6 +190,33 @@ function onCompositionEnd(): void {
   max-height: min(46vh, 420px);
   overflow-y: auto;
   overscroll-behavior: contain;
+}
+
+.ai-chat__first {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  width: 100%;
+}
+
+.ai-chat__first :deep(.ai-summary) {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.ai-chat__avatar {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--brand);
+  color: var(--brand-contrast);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
 }
 
 .ai-chat__pending {

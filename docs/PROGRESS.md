@@ -56,3 +56,9 @@
 - 用户反馈：结果标题前的图标应优先使用 API 返回的 `site_icon`，缺失时才使用字母头像。
 - 已完成：`ResultCard` 渲染 `site_icon`（http/https，lazy、no-referrer、加载失败回退）；`LetterAvatar` 改为兜底；CSP `img-src` 允许 HTTPS 图片；README/PLAN/SUMMARY 同步隐私与限制说明。
 - 验证：typecheck 通过；新增 4 项 ResultCard 测试，全套 195/195 通过；build 成功，dist 339,243 字节；真实浏览器确认结果标题前图标来自 `https://cdn.deepseek.com/site-icons/...` 且正常加载，缺失/加载失败由单元测试覆盖回退。截图：`docs/qa/screenshots/qa-site-icon-results.png`。
+
+## 2026-10-20 / 第 9 轮：AI 摘要改为 AI 对话
+
+- 用户反馈：侧边栏标题改为“AI 对话”，初始摘要作为对话第一条消息并直接显示输入框；取消侧边栏的单独“AI 追问”按钮；每条搜索结果显示“AI 追问”，点击后重置对话、Fetch 该网页并生成第一条回答。
+- 已完成：`useAi` 增加 `startFromResult`，初始摘要写入 `messages` 并支持直接追问；`AiSidebar` 标题/加载/错误/对话线程重构；`AiChat` 移除重复头部，首条消息带标签，输入框常驻；`AiTags`/`AiSummary` 去除追问按钮；`ResultCard` 相关度旁新增“AI 追问”；初始摘要追问使用独立问答系统提示。
+- 验证：typecheck 通过；新增 4 项 AiChat 测试、扩展 ResultCard 测试，全套 199/199 通过；build 成功，dist 339,437 字节；真实浏览器验证“AI 对话”标题、首条摘要 + 标签 + 输入框、直接追问、单结果 Fetch 追问、AI 关闭后点击结果按钮自动开启并生成新会话；截图：`docs/qa/screenshots/qa-ai-chat-initial.png`、`qa-ai-chat-result.png`。
