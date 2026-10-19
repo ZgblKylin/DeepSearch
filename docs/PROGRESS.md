@@ -50,3 +50,9 @@
 - Lead 已执行标准 `npm run check`：typecheck 通过、15 个测试文件 191 项通过、build 成功、单文件校验 8/8 通过。
 - 最终 `dist/index.html` 338,601 字节；生产 CSP 无 dev ws；无 Key；无外链资源。
 - 输出：`README.md`、`docs/SUMMARY.md`；已完成暂存，未执行 git commit。
+
+## 2026-10-20 / 第 8 轮：结果图标改用 site_icon
+
+- 用户反馈：结果标题前的图标应优先使用 API 返回的 `site_icon`，缺失时才使用字母头像。
+- 已完成：`ResultCard` 渲染 `site_icon`（http/https，lazy、no-referrer、加载失败回退）；`LetterAvatar` 改为兜底；CSP `img-src` 允许 HTTPS 图片；README/PLAN/SUMMARY 同步隐私与限制说明。
+- 验证：typecheck 通过；新增 4 项 ResultCard 测试，全套 195/195 通过；build 成功，dist 339,243 字节；真实浏览器确认结果标题前图标来自 `https://cdn.deepseek.com/site-icons/...` 且正常加载，缺失/加载失败由单元测试覆盖回退。截图：`docs/qa/screenshots/qa-site-icon-results.png`。

@@ -3,7 +3,7 @@ import { computed } from 'vue'
 
 /**
  * 本地字母头像：取站点名/域名首字符 + 名称哈希色。
- * 不加载 site_icon 或任何第三方 favicon（PLAN 3.3）。
+ * 作为搜索结果 site_icon 缺失、非法或加载失败时的兜底。
  */
 const props = withDefaults(
   defineProps<{

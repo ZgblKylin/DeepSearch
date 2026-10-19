@@ -23,8 +23,8 @@ DeepSearch 纯前端搜索站已完成。站点使用 Vue 3 + Vite + TypeScript�
 ```text
 npm run check
 - vue-tsc --noEmit：通过
-- Vitest：15 个测试文件、191 项全部通过
-- vite build：成功，dist/index.html 338,601 字节
+- Vitest：16 个测试文件、195 项全部通过
+- vite build：成功，dist/index.html 339,243 字节
 - verify:singlefile：8 项断言全部通过
 ```
 
@@ -35,7 +35,7 @@ QA 在 `docs/qa/REPORT.md` 与 `docs/qa/RECHECK.md` 中记录了真实 API E2E�
 ## 3. 关键实现决策
 
 - **纯前端直连**：Search、Chat、Fetch 均直接请求 `https://api.deepseek.com`；已核实该服务反射任意 Origin 的 CORS。若上游改变策略，纯前端方案需要代理。
-- **单 HTML**：`vite-plugin-singlefile` 内联 JS、CSS、图标与 favicon；不加载外部字体、图片或站外 favicon，搜索结果使用本地字母头像。
+- **单 HTML**：`vite-plugin-singlefile` 内联 JS、CSS、站点图标与 favicon；界面不加载第三方字体。搜索结果标题前的图标优先使用 API 的 `site_icon`，缺失或加载失败时回退为本地字母头像。
 - **Key 注入边界**：`.env` 的 `DEEPSEEK_API_KEY` 只在开发模式注入 `__DEV_API_KEY__`，且仅当 localStorage 无 Key 时写入；生产构建注入空字符串，产物不含 Key。
 - **AI 请求**：非流式 Chat，`max_tokens` 4096；摘要取前 8 条、追问取前 3 条唯一 URL；上下文有单条与总量截断；历史只回传 `content`。
 - **计费**：价格集中在 `src/lib/pricing.ts`；峰谷按北京时间工作日近似，忽略法定节假日；Search/Fetch 仅成功且非空计费。

@@ -61,7 +61,7 @@
 - 结果顶部显示条数、耗时、当前排序；下方是筛选项栏。
 - 加载时显示骨架卡片和“正在搜索 ···”三点动画；旧结果立即清空。
 - 结果卡片：标题、域名、站点名、日期、snippet、相关度分数（两位小数）、优质/权威徽标；标题和 URL 新标签页打开。
-- 站点图标使用本地首字母/哈希色头像，不加载 `site_icon` 或第三方 favicon。
+- 站点图标优先使用 Search API 返回的 `site_icon`；字段缺失、协议非法或加载失败时回退为本地首字母/哈希色头像。CSP 允许 HTTPS 图片。
 - 空结果有空状态；失败有错误状态与重试，同时弹全局错误弹窗。
 - 默认按 `rerank_score` 降序；最新按 `date` 降序、空日期最后、同日按 `rerank_score` 降序。
 - 不分页。
@@ -369,7 +369,7 @@ testApiKey(key): Promise<{ models: string[]; elapsedMs: number }>
 
 - `Icon`：`name` 为字符串，内置约 50 个线性图标（search/close/settings/github/sun/moon/monitor/chevron-*/arrow-*/external-link/help-circle/sparkles/copy/check/trash/refresh-cw/rotate-ccw/alert-*/loader/plus/minus/eye/eye-off/filter/calendar/globe/shield/star/message-circle/send/info/link/clock/zap/key/database/sliders/menu 等）；未知名称回退 help-circle。新增图标在 T5 集成时修改 `Icon.vue`。
 - `WhaleLogo`：props `size`（高度 px，默认 28）、`title`；官方蓝色虎鲸路径 `#3964FE`。
-- `LetterAvatar`：props `name`、`url`、`size`；本地首字母 + 哈希色，不加载外部 favicon。
+- `LetterAvatar`：props `name`、`url`、`size`；本地首字母 + 哈希色，作为 `site_icon` 缺失或加载失败时的兜底。
 - `Popover`：`v-model:open`、`align`（`start`/`end`）、`offset`、`panelClass`、`dismissOnOutsideClick`、`dismissOnEscape`、`role`；trigger 插槽参数 `{ open, toggle }`，默认插槽参数 `{ close }`。
 - `BaseModal`：props `open`、`title`、`subtitle`、`size`（`sm`/`md`/`lg`）、`closeOnOverlay`、`showClose`、`ariaLabel`；emit `close`；插槽 header/default/footer；内置焦点陷阱、Esc、滚动锁定。
 - `LoadingDots`：`label`、`size`（`sm`/`md`）。`ToggleSwitch`：`v-model`、`label`、`disabled`。`ToastHost`：读取 `useUi().toast`。

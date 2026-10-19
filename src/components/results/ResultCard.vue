@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
 
 import Icon from '@/components/ui/Icon.vue'
 import LetterAvatar from '@/components/ui/LetterAvatar.vue'
@@ -9,9 +9,37 @@ import type { SearchResult } from '@/types'
 /**
  * 单条搜索结果卡片（PLAN 3.3）：
  * 标题、域名、站点名、日期、snippet、相关度分数、优质/权威徽标。
- * 标题与 URL 均在新标签页打开；站点图标使用本地字母头像，不加载 site_icon。
+ * 标题与 URL 均在新标签页打开；站点图标优先使用 API 返回的 `site_icon`，
+ * 缺失、非法或加载失败时回退为本地字母头像。
  */
 const props = defineProps<{ result: SearchResult }>()
+
+/** 图标加载失败后本次结果内不再重试，直接回退字母头像 */
+const iconFailed = ref(false)
+
+watch(
+  () => [props.result.url, props.result.site_icon],
+  () => {
+    iconFailed.value = false
+  },
+)
+
+/** 只接受 http(s) 图标地址；空值、相对地址或非 http(s) 协议均回退 */
+const siteIconUrl = computed(() => {
+  if (iconFailed.value) return ''
+  const raw = props.result.site_icon.trim()
+  if (!raw) return ''
+  try {
+    const url = new URL(raw)
+    return url.protocol === 'https:' || url.protocol === 'http:' ? url.href : ''
+  } catch {
+    return ''
+  }
+})
+
+function handleIconError(): void {
+  iconFailed.value = true
+}
 
 /** 优质阈值（PLAN 3.5 标签口径一致） */
 const TOP_SCORE_THRESHOLD = 1.5
@@ -41,7 +69,19 @@ const isAuthoritative = computed(
 <template>
   <article class="result-card">
     <div class="result-card__meta">
-      <LetterAvatar :name="result.site_name" :url="result.url" :size="22" />
+      <img
+        v-if="siteIconUrl"
+        class="result-card__icon"
+        :src="siteIconUrl"
+        alt=""
+        width="22"
+        height="22"
+        loading="lazy"
+        decoding="async"
+        referrerpolicy="no-referrer"
+        @error="handleIconError"
+      />
+      <LetterAvatar v-else :name="result.site_name" :url="result.url" :size="22" />
       <span class="result-card__site">{{ siteName }}</span>
       <template v-if="host">
         <span class="result-card__dot" aria-hidden="true">·</span>
@@ -117,6 +157,15 @@ const isAuthoritative = computed(
   font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.result-card__icon {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-xs);
+  background: var(--bg-inset);
+  object-fit: contain;
 }
 
 .result-card__host {
