@@ -41,6 +41,23 @@ function mask(value) {
   return `${value.slice(0, 3)}${'*'.repeat(6)}（长度 ${value.length}）`
 }
 
+/**
+ * 检查 HTML 中是否存在 host 精确等于 api.deepseek.com 的 http(s) URL。
+ *
+ * 不直接对整段 HTML 做域名子串判断，避免把 `evil.example/api.deepseek.com`
+ * 之类的路径或查询参数误判为 API 基址。
+ */
+function hasApiBase(html) {
+  const candidates = html.match(/https?:\/\/[^\s"'<>`\\]+/g) ?? []
+  return candidates.some((candidate) => {
+    try {
+      return new URL(candidate).hostname === 'api.deepseek.com'
+    } catch {
+      return false
+    }
+  })
+}
+
 /** 收集目录内全部条目（相对路径），用于“dist 只有 index.html”断言 */
 function listEntries(dir, base = '') {
   const entries = []
@@ -123,7 +140,7 @@ function checkHtml() {
     pass('无外链样式（<link rel="stylesheet">）')
   }
 
-  if (html.includes('api.deepseek.com')) {
+  if (hasApiBase(html)) {
     pass('包含 API 基址 api.deepseek.com')
   } else {
     fail('未包含 API 基址 api.deepseek.com')

@@ -88,3 +88,9 @@
 - 已完成：Vite `build.outDir` 改回 `dist` 并恢复默认清空行为；`verify-singlefile.mjs` 改回校验 `dist/` 且只允许 `index.html`；`.gitignore` 恢复 `dist/`；新增 `.github/workflows/pages.yml`（`npm ci` → `npm run check` → 上传 `dist` → Pages 部署）；移除已跟踪的 `docs/index.html` 与 `docs/.nojekyll`；README、PLAN、SUMMARY 同步部署方式。
 - Actions 运行环境：五个官方 Action 均升级到 Node 24 兼容版本（`checkout@v7`、`setup-node@v7`、`configure-pages@v6`、`upload-pages-artifact@v5`、`deploy-pages@v5`），消除 Node.js 20 弃用警告；两个 job 的 runner 固定为 `ubuntu-24.04`，避免 `ubuntu-latest` 迁移到 Ubuntu 26 的提示。
 - 验证：typecheck 通过；全套 204/204 通过；build 成功，`dist/index.html` 340,787 字节；单文件校验 8/8；`docs/` 仅保留项目文档与 QA 目录；workflow 待推送后由 GitHub 首次运行验证。
+
+## 2026-10-20 / 第 14 轮：修复 CodeQL URL 子串告警
+
+- GitHub code scanning 告警 #1：`js/incomplete-url-substring-sanitization`，位置为 `scripts/verify-singlefile.mjs` 对 `api.deepseek.com` 的整段 HTML 子串判断。
+- 已完成：新增 URL 提取与 `new URL(...).hostname === 'api.deepseek.com'` 的精确 host 校验，替换原来的 `html.includes('api.deepseek.com')`；不改变单文件校验的其他断言。
+- 验证：`node --check` 通过；`npm run verify:singlefile` 8/8 通过；待下一次 CodeQL 扫描确认告警关闭。
