@@ -1,5 +1,7 @@
 # DeepSearch
 
+[![](https://img.shields.io/badge/powered_by-dsh-4D6BFE?style=flat-square&logo=deepseek&logoColor=white)](https://github.com/deepseek-ai/deepseek-harness)
+
 DeepSearch 是一个纯前端搜索站：浏览器直接调用 DeepSeek Search API 获取网页结果，调用 Chat Completions API 生成侧边栏摘要与追问会话，调用 Fetch API 读取网页正文。项目没有后端、没有数据库、没有服务端渲染，构建产物是一个可以单独部署的 `docs/index.html`。
 
 项目特点：
