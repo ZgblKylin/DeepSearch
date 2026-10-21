@@ -4,7 +4,7 @@
 
 DeepSearch 是一个纯前端搜索站：浏览器直接调用 DeepSeek Search API 获取网页结果，调用 Chat Completions API 生成侧边栏摘要与追问会话，调用 Fetch API 读取网页正文。项目没有后端、没有数据库、没有服务端渲染，构建产物是一个可以单独部署的 `dist/index.html`。
 
-在 [GitHub Pages](https://zgblkylin.github.io/DeepSearch/) 试用。
+在 [GitHub Pages](https://zgblkylin.github.io/DeepSearch/) 与 [Cloudflare Pages](https://deepsearch-4i6.pages.dev/) 试用。
 
 项目特点：
 
@@ -88,9 +88,9 @@ workflow 失败时不会部署，线上保持上一次成功版本。发布地�
 发布流程：
 
 - 推送到 `main` 或手动运行 `Deploy Cloudflare Pages`，workflow 依次执行 `npm ci`、`npm run check`，通过后用 `wrangler pages deploy dist --project-name=deepsearch --branch=<当前分支>` 上传。
-- `main` 命中项目生产分支时更新生产站点，地址形如 `https://deepsearch.pages.dev`；其它分支的 `workflow_dispatch` 只生成预览部署，不覆盖生产。
+- `main` 命中项目生产分支时更新生产站点，生产地址为 `https://deepsearch-4i6.pages.dev`；其它分支的 `workflow_dispatch` 只生成预览部署，不覆盖生产。
 - 部署失败时线上保持上一次成功版本；需要回退时在 Pages 控制台选择历史部署。
-- 如果项目名已被占用，Cloudflare 会在 `pages.dev` 地址后追加随机字符；此时需要同步修改 workflow 中的 `--project-name` 与本段说明。
+- 如果 `pages.dev` 地址已被占用，Cloudflare 会在项目名后追加随机字符；更换项目名时，同步修改 workflow 中的 `--project-name` 与本段说明。
 
 说明：
 

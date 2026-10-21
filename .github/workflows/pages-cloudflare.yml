@@ -35,14 +35,13 @@ jobs:
       - name: Deploy to Cloudflare Pages
         id: deploy
         uses: cloudflare/wrangler-action@v4
-        env:
-          DEPLOY_BRANCH: ${{ github.ref_name }}
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           wranglerVersion: '4'
           gitHubToken: ${{ secrets.GITHUB_TOKEN }}
-          command: pages deploy dist --project-name=deepsearch --branch="$DEPLOY_BRANCH"
+          # wrangler-action 以参数数组执行命令，不经过 shell，$VAR 不会展开，这里必须用 Actions 表达式。
+          command: pages deploy dist --project-name=deepsearch --branch=${{ github.ref_name }}
 
       - name: Deployment summary
         env:
