@@ -4,7 +4,10 @@
 
 DeepSearch 是一个纯前端搜索站：浏览器直接调用 DeepSeek Search API 获取网页结果，调用 Chat Completions API 生成侧边栏摘要与追问会话，调用 Fetch API 读取网页正文。项目没有后端、没有数据库、没有服务端渲染，构建产物是一个可以单独部署的 `dist/index.html`。
 
-在 [GitHub Pages](https://zgblkylin.github.io/DeepSearch/) 与 [Cloudflare Pages](https://deepsearch-4i6.pages.dev/) 试用。
+在线试用：
+
+- [GitHub Pages](https://zgblkylin.github.io/DeepSearch/)
+- [Cloudflare Pages](https://deepsearch-4i6.pages.dev)
 
 项目特点：
 
