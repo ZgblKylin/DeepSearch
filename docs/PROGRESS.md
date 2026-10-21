@@ -101,3 +101,9 @@
 - 已完成：新增 `.github/workflows/pages-cloudflare.yml`，`main` 推送或手动触发时执行 `npm ci`、`npm run check`，通过后用 `cloudflare/wrangler-action@v4` 执行 `wrangler pages deploy dist --project-name=deepsearch --branch=<当前分支>`；`Deployment summary` 输出部署地址与分支别名；README 重写 Cloudflare Pages 小节，补充 Direct Upload 前置、Secrets、生产/预览语义与原生 Git 集成备选；PLAN 部署条目同步。
 - 验证：`npm ci --cache .npm-cache` 与 `npm run check` 通过（204 项测试、构建 340,787 字节、单文件校验 8/8）；workflow 的 YAML 解析校验通过；首次 Actions 运行成功，生产地址为 `https://deepsearch-4i6.pages.dev`。
 - 问题与修复：`wrangler-action@v4` 以参数数组调用 Wrangler，不经过 shell，`$DEPLOY_BRANCH` 会原样传给 `--branch` 并生成预览部署；分支参数改为 Actions 表达式 `${{ github.ref_name }}`。
+
+## 2026-10-21 / 第 16 轮：默认返回条数改为 30
+
+- 用户要求：将默认结果数量改为 30。
+- 已完成：`DEFAULT_SETTINGS.resultCount` 由 10 改为 30；设置面板的默认值提示与注释、README、PLAN 的默认值说明同步；清空数据后恢复默认的集成测试断言同步改为 30。
+- 验证：`npm run check` 通过（18 个测试文件、204 项测试、构建 340,787 字节、单文件校验 8/8）。

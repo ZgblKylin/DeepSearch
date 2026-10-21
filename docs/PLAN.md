@@ -112,7 +112,7 @@
 右侧悬浮面板 + 半透明遮罩，宽约 460px；点击外部、Esc、关闭按钮关闭；移动端全屏。所有修改即时写入 localStorage（Key 输入失焦/防抖写入）。
 
 - 连接配置：API Key（密码框、显示/隐藏）、测试连接、AI 模型（`DeepSeek Flash` / `DeepSeek V4 Pro`）、思考挡位（关闭/低/高/最高，默认高）。
-- 搜索偏好：每次返回条数（1–50，默认 10）、排序（相关度/最新，默认相关度）。
+- 搜索偏好：每次返回条数（1–50，默认 30）、排序（相关度/最新，默认相关度）。
 - 外部搜索引擎：Bing、Google、百度、DuckDuckGo 卡片单选，默认 Bing。
 - 本机数据统计：搜索次数、抓取次数、Token 总消耗、预估 API 花费；模型维度输入命中/未命中/输出/高峰/空闲费用；Search/Fetch 计费；价格说明。
 - 清零用量：二次确认，仅清统计。
@@ -197,7 +197,7 @@ localStorage：
   "apiKey": "",
   "aiModel": "deepseek-flash",
   "reasoningEffort": "high",
-  "resultCount": 10,
+  "resultCount": 30,
   "sortMode": "relevance",
   "engine": "bing",
   "aiMode": true,

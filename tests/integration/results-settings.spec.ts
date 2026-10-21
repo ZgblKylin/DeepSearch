@@ -224,7 +224,7 @@ describe('设置面板：清空数据', () => {
 
     expect(settingsStore.settings.apiKey).toBe('')
     expect(settingsStore.settings.theme).toBe('system')
-    expect(settingsStore.settings.resultCount).toBe(10)
+    expect(settingsStore.settings.resultCount).toBe(30)
     expect(usageStore.usage.searches).toBe(0)
     expect(usageStore.usage.models).toEqual({})
     expect(localStorage.getItem(STORAGE_KEYS.history)).toBeNull()

@@ -12,7 +12,7 @@ import type { SortMode } from '@/types'
 
 /**
  * 设置面板 · 搜索偏好（PLAN 3.6）：
- * - 每次返回条数 1–50（默认 10），可直接输入或点快捷值；越界输入在失焦时收敛；
+ * - 每次返回条数 1–50（默认 30），可直接输入或点快捷值；越界输入在失焦时收敛；
  * - 排序切换立即重排已有结果、不重新请求；条数在下次搜索时生效。
  */
 const { settings, update } = useSettings()
@@ -124,7 +124,7 @@ function chooseCount(value: number): void {
           {{ value }} 条
         </button>
       </div>
-      <p class="settings-hint">范围 {{ RESULT_COUNT_MIN }}–{{ RESULT_COUNT_MAX }}，默认 10；下次搜索生效。</p>
+      <p class="settings-hint">范围 {{ RESULT_COUNT_MIN }}–{{ RESULT_COUNT_MAX }}，默认 30；下次搜索生效。</p>
     </div>
 
     <div class="settings-group">
