@@ -77,11 +77,33 @@ workflow 失败时不会部署，线上保持上一次成功版本。发布地�
 
 ### Cloudflare Pages
 
-- 构建命令：`npm ci && npm run build`
+本项目通过 GitHub Actions 把构建产物直接上传到 Cloudflare Pages（Direct Upload），与 GitHub Pages 并行部署、互不影响。
+
+前置配置（只需一次）：
+
+1. 在 Cloudflare 控制台创建 Pages 项目：Workers & Pages → Create → Pages → Direct Upload，项目名 `deepsearch`，生产分支 `main`；也可以在本地终端运行 `npx wrangler@4 pages project create deepsearch --production-branch main`。
+2. 创建 API Token：My Profile → API Tokens → Create Token → Custom，权限选择 `Account / Cloudflare Pages / Edit`，资源限定到目标账号。
+3. 在仓库 Settings → Secrets and variables → Actions 中添加 `CLOUDFLARE_API_TOKEN` 与 `CLOUDFLARE_ACCOUNT_ID` 两个 Secret（Account ID 在 Workers & Pages 概览侧栏）。
+
+发布流程：
+
+- 推送到 `main` 或手动运行 `Deploy Cloudflare Pages`，workflow 依次执行 `npm ci`、`npm run check`，通过后用 `wrangler pages deploy dist --project-name=deepsearch --branch=<当前分支>` 上传。
+- `main` 命中项目生产分支时更新生产站点，地址形如 `https://deepsearch.pages.dev`；其它分支的 `workflow_dispatch` 只生成预览部署，不覆盖生产。
+- 部署失败时线上保持上一次成功版本；需要回退时在 Pages 控制台选择历史部署。
+- 如果项目名已被占用，Cloudflare 会在 `pages.dev` 地址后追加随机字符；此时需要同步修改 workflow 中的 `--project-name` 与本段说明。
+
+说明：
+
+- Direct Upload 项目创建后不能切换为 Cloudflare 的 Git 集成；使用 Git 集成需要新建项目。
+- Cloudflare 建议新项目使用 Workers 静态资源，Pages 仍然可用。迁移时添加 `wrangler.jsonc`（`assets.directory` 指向 `./dist`），并把部署命令改为 `wrangler deploy`。
+- 不需要环境变量；站点运行时由用户在浏览器里配置自己的 DeepSeek API Key。
+- 路由使用当前 pathname 加 `?q=`，不需要 SPA 重写规则；`dist/` 只包含 `index.html`，也没有自定义 `_headers` 或 `_redirects`。
+
+若要使用 Cloudflare 的原生 Git 集成（由 Pages 自行构建），需要新建项目，并配置为：
+
+- 构建命令：`npm ci && npm run check`
 - 输出目录：`dist`
 - Node 版本：`22.12.0` 或更高
-- 不需要任何环境变量；站点运行时由用户在浏览器里配置自己的 DeepSeek API Key
-- 路由使用当前 pathname 加 `?q=`，不需要 SPA 重写规则
 
 ### 提交注意事项
 
@@ -204,6 +226,7 @@ scripts/verify-singlefile.mjs
 tests/                    unit / integration
 docs/                     计划、进度、总结与 QA 报告
 .github/workflows/pages.yml  GitHub Pages 构建与部署
+.github/workflows/pages-cloudflare.yml  Cloudflare Pages 构建与部署
 ```
 
 ## 已知限制

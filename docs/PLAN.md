@@ -288,7 +288,7 @@ testApiKey(key): Promise<{ models: string[]; elapsedMs: number }>
 - Vite：`base: './'`、`viteSingleFile()`、内联资源、`cssCodeSplit: false`、`sourcemap: false`。
 - 单文件校验：dist 只有 index.html；无外链脚本/样式；含 `api.deepseek.com`；不含 `.env` Key；体积预算小于 2 MB。
 - 构建输出 `dist/`，由 `.gitignore` 忽略；`docs/` 只保存项目文档。
-- GitHub Pages 由 `.github/workflows/pages.yml` 在 `main` 推送或手动触发时构建并上传 `dist`，不提交构建产物。
+- GitHub Pages 与 Cloudflare Pages 分别由 `.github/workflows/pages.yml`、`.github/workflows/pages-cloudflare.yml` 在 `main` 推送或手动触发时构建并上传 `dist`；Cloudflare 使用 Direct Upload，需要仓库 Secrets `CLOUDFLARE_API_TOKEN` 与 `CLOUDFLARE_ACCOUNT_ID`，不提交构建产物。
 - CSP：self、内联样式/脚本、`https://api.deepseek.com`、开发 HMR localhost WebSocket；不允许外部图片/字体。
 - 全站中文，文档中文；遵循 `E:\Git\dsh-gui-home\.dsh\.agents\docs\行文规范.md`。
 

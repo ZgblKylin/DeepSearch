@@ -94,3 +94,9 @@
 - GitHub code scanning 告警 #1：`js/incomplete-url-substring-sanitization`，位置为 `scripts/verify-singlefile.mjs` 对 `api.deepseek.com` 的整段 HTML 子串判断。
 - 已完成：新增 URL 提取与 `new URL(...).hostname === 'api.deepseek.com'` 的精确 host 校验，替换原来的 `html.includes('api.deepseek.com')`；不改变单文件校验的其他断言。
 - 验证：`node --check` 通过；`npm run verify:singlefile` 8/8 通过；待下一次 CodeQL 扫描确认告警关闭。
+
+## 2026-10-21 / 第 15 轮：Cloudflare Pages 部署
+
+- 用户要求：分析能否通过 GitHub Actions 把站点部署到 Cloudflare Pages，并落地实现。
+- 已完成：新增 `.github/workflows/pages-cloudflare.yml`，`main` 推送或手动触发时执行 `npm ci`、`npm run check`，通过后用 `cloudflare/wrangler-action@v4` 执行 `wrangler pages deploy dist --project-name=deepsearch --branch=<当前分支>`；`Deployment summary` 输出部署地址与分支别名；README 重写 Cloudflare Pages 小节，补充 Direct Upload 前置、Secrets、生产/预览语义与原生 Git 集成备选；PLAN 部署条目同步。
+- 验证：`npm ci --cache .npm-cache` 与 `npm run check` 通过（204 项测试、构建 340,787 字节、单文件校验 8/8）；workflow 的 YAML 解析校验通过；首次 Actions 运行需用户先创建 Pages 项目并配置两个 Secrets。
