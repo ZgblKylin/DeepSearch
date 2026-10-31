@@ -3,7 +3,8 @@
  *
  * 职责：
  * - 维护 `query` / `results` / `loading` / `error` / `elapsedMs`；
- * - `run(q)` 校验长度、确保有 API Key、调用 `searchWeb`、记录本机统计；
+ * - `run(q)` 校验长度、确保有 API Key、发起请求、记录本机统计；
+ * - 正式发起前先尝试复用预取请求（见 `@/lib/searchPrefetch`），未命中时才调用 `searchWeb`；
  * - 新搜索取消旧请求，并用请求序号丢弃过期响应（避免竞态覆盖新结果）；
  * - 缺少 API Key 时置 `awaitingKey` 并打开 Key 弹窗，保存后自动继续本次搜索；
  *   关闭弹窗不保存时结果页显示“需要配置 API Key”的可操作状态（QA P2-1）；
@@ -17,7 +18,13 @@ import { ref, shallowRef } from 'vue'
 
 import { searchWeb } from '@/lib/api'
 import { ApiError, isAbortError, normalizeUnknownError } from '@/lib/errors'
-import { MAX_QUERY_LENGTH, countQueryChars, parseQuery, validateQuery } from '@/lib/query'
+import { validateQuery } from '@/lib/query'
+import {
+  awaitSearchPrefetch,
+  clearSearchPrefetch,
+  resolveSearchRequestParams,
+  takeSearchPrefetch,
+} from '@/lib/searchPrefetch'
 import { useSettings } from '@/stores/settings'
 import { useUi } from '@/stores/ui'
 import { useUsage } from '@/stores/usage'
@@ -59,6 +66,7 @@ function invalidate(): void {
   requestSeq += 1
   controller?.abort()
   controller = null
+  clearSearchPrefetch()
   loading.value = false
   awaitingKey.value = false
 }
@@ -95,18 +103,23 @@ async function execute(value: string): Promise<void> {
   searched.value = false
   awaitingKey.value = false
 
-  // ori_question：去掉语法 token 的纯文本；非空且不超过 128 字符时才发送（PLAN 3.4）
-  const oriQuestion = parseQuery(value).oriQuestion
-  const oriQuestionParam =
-    oriQuestion && countQueryChars(oriQuestion) <= MAX_QUERY_LENGTH ? oriQuestion : undefined
+  // 请求参数先归一化：预取复用要求两侧参数完全一致
+  const request = resolveSearchRequestParams(value, settings.resultCount)
 
   try {
-    const data = await searchWeb(settings.apiKey, {
-      query: value,
-      count: settings.resultCount,
-      oriQuestion: oriQuestionParam,
-      signal: localController.signal,
-    })
+    // 预取命中时复用已发出的请求；未命中或预取失败时走正式请求
+    const prefetch = takeSearchPrefetch({ ...request, apiKey: settings.apiKey })
+    const prefetched = prefetch
+      ? await awaitSearchPrefetch(prefetch, localController.signal)
+      : null
+    const data =
+      prefetched ??
+      (await searchWeb(settings.apiKey, {
+        query: request.query,
+        count: request.count,
+        oriQuestion: request.oriQuestion,
+        signal: localController.signal,
+      }))
 
     // 过期响应直接丢弃
     if (seq !== requestSeq) return

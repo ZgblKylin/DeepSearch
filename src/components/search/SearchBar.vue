@@ -10,6 +10,8 @@ import { useSearch } from '@/composables/useSearch'
 import { useViewTransition } from '@/composables/useViewTransition'
 import { MAX_QUERY_LENGTH, countQueryChars, validateQuery } from '@/lib/query'
 import { addSearchHistory, readSearchHistory } from '@/lib/searchHistory'
+import { resolveSearchRequestParams, startSearchPrefetch } from '@/lib/searchPrefetch'
+import { useSettings } from '@/stores/settings'
 
 /**
  * 搜索框（PLAN 3.2）。
@@ -33,6 +35,7 @@ const props = withDefaults(
 
 const { query, navigate } = useQueryRoute()
 const { run: runViewTransition } = useViewTransition()
+const { settings } = useSettings()
 const { error: searchError, awaitingKey, retry } = useSearch()
 
 const inputRef = ref<HTMLInputElement | null>(null)
@@ -88,6 +91,12 @@ function submit(): void {
     inputRef.value?.blur()
     return
   }
+  // 先发请求再导航：路由 watcher 调度与 View Transition 动画的耗时与网络请求重叠。
+  // 预取未命中或失败时正式执行会重新请求，不影响正确性。
+  startSearchPrefetch({
+    ...resolveSearchRequestParams(next, settings.resultCount),
+    apiKey: settings.apiKey,
+  })
   // 首页 → 结果页：搜索框用 View Transitions 从 hero 移动到结果页顶部（PLAN 3.1）；
   // 结果页内的紧凑搜索框直接导航，避免重复动画。
   if (props.compact) {

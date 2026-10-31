@@ -3,6 +3,12 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!--
+      连接预热：搜索与 AI 请求都直连 API 基址，提前完成 DNS、TCP 与 TLS 握手。
+      crossorigin 必须保留：`fetch` 发出的是 CORS 请求，非 CORS 连接无法复用。
+    -->
+    <link rel="preconnect" href="https://api.deepseek.com" crossorigin />
+    <link rel="dns-prefetch" href="https://api.deepseek.com" />
     <meta
       name="description"
       content="DeepSearch：纯前端 DeepSeek 搜索与 AI 摘要。无广告、无追踪，API Key 仅保存在浏览器本地。"
@@ -43,6 +49,103 @@
         document.documentElement.dataset.theme = resolved
         var meta = document.querySelector('meta[name="theme-color"]')
         if (meta) meta.setAttribute('content', resolved === 'dark' ? '#0f1115' : '#ffffff')
+      })()
+    </script>
+    <script>
+      /*
+       * 搜索请求预取：在 HTML 解析阶段发出 `?q=` 对应的搜索请求，使剩余 HTML 解析、
+       * 脚本执行与 Vue 初始化与网络请求重叠。正式执行时由 src/lib/searchPrefetch.ts
+       * 校验 query / count / oriQuestion / apiKey 完全一致后才复用响应。
+       *
+       * 含搜索语法时不预取：语法解析只在模块侧可用，此处无法保证 ori_question
+       * 与正式请求一致，参数不一致必然被丢弃，预取只会白耗一次额度。
+       */
+      ;(function () {
+        var SETTINGS_KEY = 'deepsearch.settings.v1'
+        var SEARCH_URL = 'https://api.deepseek.com/v1/tools/search'
+        var MAX_QUERY_LENGTH = 128
+        var TIMEOUT_MS = 20000
+
+        try {
+          var raw = new URLSearchParams(window.location.search).get('q')
+          if (!raw) return
+          var query = raw.trim()
+          if (!query) return
+
+          // 引号短语、排除词与结构化语法都会改变 ori_question，跳过预取
+          if (query.indexOf('"') !== -1) return
+          if (/(^|\s)-(?=\S)/.test(query)) return
+          if (/(^|\s)(?:site|lang|after|before):/i.test(query)) return
+
+          var stored = null
+          try {
+            stored = JSON.parse(window.localStorage.getItem(SETTINGS_KEY) || 'null')
+          } catch (error) {
+            stored = null
+          }
+          if (!stored || typeof stored !== 'object') return
+
+          var apiKey = typeof stored.apiKey === 'string' ? stored.apiKey.trim() : ''
+          if (!apiKey) return
+
+          var count = typeof stored.resultCount === 'number' ? Math.round(stored.resultCount) : 10
+          if (!isFinite(count)) count = 10
+          count = Math.min(50, Math.max(1, count))
+
+          var oriQuestion = query.replace(/\s+/gu, ' ').trim()
+          if (Array.from(oriQuestion).length > MAX_QUERY_LENGTH) return
+
+          var body = { query: query, count: count, need_content: false }
+          if (oriQuestion) body.ori_question = oriQuestion
+
+          var controller = new AbortController()
+          var timer = window.setTimeout(function () {
+            controller.abort()
+          }, TIMEOUT_MS)
+
+          var promise = fetch(SEARCH_URL, {
+            method: 'POST',
+            headers: {
+              Authorization: 'Bearer ' + apiKey,
+              Accept: 'application/json',
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(body),
+            signal: controller.signal,
+          })
+            .then(function (response) {
+              return response.ok ? response.text() : null
+            })
+            .then(function (text) {
+              if (!text) return null
+              try {
+                return JSON.parse(text)
+              } catch (error) {
+                return null
+              }
+            })
+            .catch(function () {
+              return null
+            })
+            .finally(function () {
+              window.clearTimeout(timer)
+            })
+
+          window.__DS_SEARCH_PREFETCH__ = {
+            query: query,
+            count: count,
+            oriQuestion: oriQuestion,
+            apiKey: apiKey,
+            startedAt: Date.now(),
+            promise: promise,
+            abort: function () {
+              window.clearTimeout(timer)
+              controller.abort()
+            },
+          }
+        } catch (error) {
+          // 预取失败不影响正常搜索
+        }
       })()
     </script>
   </head>

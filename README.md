@@ -222,7 +222,7 @@ src/
   App.vue                 路由视图、搜索与 AI 编排
   components/             布局、共享 UI、搜索、结果、AI、设置
   composables/            路由、搜索、AI、主题、View Transition
-  lib/                    API 客户端、查询解析、排序、费用、Markdown、存储
+  lib/                    API 客户端、查询解析、搜索预取、排序、费用、Markdown、存储
   stores/                 settings / usage / ui 单例
   types.ts                共享类型与默认值
 scripts/verify-singlefile.mjs
@@ -235,6 +235,7 @@ docs/                     计划、进度、总结与 QA 报告
 ## 已知限制
 
 - Chat 使用非流式请求，摘要与回答生成期间以三点加载动画呈现。
+- 首屏预取在参数不一致或页面提前离开时可能多产生一次 Search 费用（每次 0.005 元）。
 - Search API 不提供分页；结果数量由“每次返回条数”控制，范围为 1–50。
 - AI 摘要、单结果追问与多轮对话会产生 Token 费用；长对话或高思考挡位会增加消耗。
 - 峰谷判断未处理中国法定节假日，费用为预估值。

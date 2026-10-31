@@ -35,6 +35,7 @@ QA 在 `docs/qa/REPORT.md` 与 `docs/qa/RECHECK.md` 中记录了真实 API E2E�
 ## 3. 关键实现决策
 
 - **纯前端直连**：Search、Chat、Fetch 均直接请求 `https://api.deepseek.com`；已核实该服务反射任意 Origin 的 CORS。若上游改变策略，纯前端方案需要代理。
+- **首屏预取**：`index.html` 的 head 内联脚本在 HTML 解析阶段发出 `?q=` 对应的 Search 请求，搜索框提交则在路由跳转与 View Transition 之前发出，使网络耗时与脚本执行、Vue 初始化重叠。正式请求按 `query`/`count`/`ori_question`/API Key 四项一致才复用预取响应，不一致、超过 30 秒窗口或预取失败时回退到正式请求。head 侧不复现搜索语法解析，含语法 token 的查询不预取。head 同时为 API 基址声明 `preconnect` 与 `dns-prefetch`。
 - **单 HTML**：`vite-plugin-singlefile` 内联 JS、CSS、站点图标与 favicon；界面不加载第三方字体。搜索结果标题前的图标优先使用 API 的 `site_icon`，缺失或加载失败时回退为本地字母头像。
 - **Key 注入边界**：`.env` 的 `DEEPSEEK_API_KEY` 只在开发模式注入 `__DEV_API_KEY__`，且仅当 localStorage 无 Key 时写入；生产构建注入空字符串，产物不含 Key。
 - **AI 请求**：非流式 Chat，`max_tokens` 4096；首条摘要取前 8 条结果，单结果追问取该条网页正文；上下文有单条与总量截断；历史只回传 `content`。

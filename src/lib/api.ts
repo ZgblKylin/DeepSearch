@@ -158,6 +158,26 @@ function normalizeSearchResult(value: unknown): SearchResult | null {
   }
 }
 
+/**
+ * 把 Search 响应体归一化为结果数组。
+ *
+ * 预取响应与正式请求响应共用此归一化，保证复用预取时得到相同形状的结果。
+ */
+export function normalizeSearchPayload(payload: unknown): SearchResult[] {
+  if (!isObject(payload) || !Array.isArray(payload.results)) {
+    throw new ApiError({
+      status: null,
+      code: 'invalid_response',
+      message: '搜索响应缺少 results 数组',
+      context: 'search',
+    })
+  }
+
+  return payload.results
+    .map(normalizeSearchResult)
+    .filter((result): result is SearchResult => result !== null)
+}
+
 export interface SearchWebParams {
   query: string
   count: number
@@ -190,18 +210,7 @@ export async function searchWeb(
     { timeoutMs: API_TIMEOUTS.search, signal: params.signal, context: 'search' },
   )
 
-  if (!isObject(payload) || !Array.isArray(payload.results)) {
-    throw new ApiError({
-      status: null,
-      code: 'invalid_response',
-      message: '搜索响应缺少 results 数组',
-      context: 'search',
-    })
-  }
-
-  return payload.results
-    .map(normalizeSearchResult)
-    .filter((result): result is SearchResult => result !== null)
+  return normalizeSearchPayload(payload)
 }
 
 function normalizeChatUsage(value: unknown): ChatUsage {

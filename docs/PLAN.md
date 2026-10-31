@@ -336,7 +336,8 @@ testApiKey(key): Promise<{ models: string[]; elapsedMs: number }>
 ### 9.2 API 客户端（`src/lib/api.ts`）
 
 - 导出 `API_BASE_URL`、`API_TIMEOUTS`（search 20s / chat 120s / fetch 30s / test 15s）、`ApiError`（re-export `src/lib/errors.ts`）、`isApiError`。
-- `searchWeb(key, { query, count, oriQuestion?, signal? })`：请求体仅 `query`/`count`/`need_content:false`（`oriQuestion` 非空时加 `ori_question`），永远不发送 `localization`；返回归一化 `SearchResult[]`（缺失字段补空，`authority` 缺失为 null，无 url 的条目丢弃）。
+- `searchWeb(key, { query, count, oriQuestion?, signal? })`：请求体仅 `query`/`count`/`need_content:false`（`oriQuestion` 非空时加 `ori_question`），永远不发送 `localization`；返回 `normalizeSearchPayload(payload)` 的结果。
+- `normalizeSearchPayload(payload)`：把 Search 响应体归一化为 `SearchResult[]`（缺失字段补空，`authority` 缺失为 null，无 url 的条目丢弃）；缺少 `results` 数组时抛 `invalid_response`。预取响应与正式响应共用此归一化。
 - `chatCompletion(key, { model, messages, effort, maxTokens?, signal? })`：`maxTokens` 默认 4096；`effort === 'off'` 时 `thinking:{type:'disabled'}` 且无 `reasoning_effort`，否则 `enabled` + `low|high|max`；不发送 `temperature`。返回 `{ content, reasoningContent, usage, model, finishReason }`，usage 已转为 camelCase。
 - `fetchPage(key, url, signal?)`、`testApiKey(key)`（GET /models，返回 `{ models, elapsedMs }`）。
 - `ApiError` 字段 `status: number | null`、`code`、`type?`、`requestId?`、`context?`；code 归一化顺序 `error.code → error.type → http_<status>`；纯文本响应整体作为 message；网络 `network_error`、超时 `timeout`、解析失败 `invalid_response`；调用方 AbortController 取消时抛原生 `AbortError`（UI 层静默忽略）。`errors.ts` 另导出 `statusSuggestion(status)`、`errorContextTitle(context)`、`formatErrorDetails(error)` 供错误弹窗使用。
@@ -349,6 +350,7 @@ testApiKey(key): Promise<{ models: string[]; elapsedMs: number }>
 - `useTheme()`：单例，返回 `{ theme, resolvedTheme, setTheme }`；监听系统主题变化并同步 `<html data-theme>` 与 `theme-color`。`index.html` 内联脚本负责首屏前设置主题。
 - `useViewTransition()`：`{ run(update), supported }`；原生 View Transitions 不可用或 reduced-motion 时给 `<html>` 加 `vt-fallback` 类（base.css 中的淡入/位移降级）。
 - `useOutsideClick(targets, handler, { enabled? })` 与同文件 `useEscapeKey(handler, { enabled? })`；目标支持单个 Ref/普通元素/数组及 computed。
+- `lib/searchPrefetch.ts`：`{ resolveSearchRequestParams(query, count), startSearchPrefetch(params), takeSearchPrefetch(params), awaitSearchPrefetch(handle, signal), clearSearchPrefetch(), PREFETCH_MAX_AGE_MS }`。预取把 Search 请求提前到 `index.html` head 内联脚本（`?q=` 直达）或搜索框提交时（路由跳转与 View Transition 之前）；`useSearch` 正式执行时按 `query`/`count`/`oriQuestion`/`apiKey` 四项一致才复用响应，不一致、已过期或预取失败时中止预取并回退到正式请求。head 侧不复现搜索语法解析，含语法 token 的查询不预取。
 - `useFocusTrap(container, active, { onEscape?, initialFocus?, restoreFocus? })`：Tab 循环、Esc、关闭归还焦点；BaseModal 已内置。
 - `lib/format.ts`：`formatNumber`、`formatScore`、`formatElapsed`、`formatCny`、`formatDate`（YYYY-MM-DD，非法返回 ''）、`formatDateTime`。
 

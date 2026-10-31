@@ -8,7 +8,8 @@
  * 3. 包含 API 基址 `api.deepseek.com`；
  * 4. 不包含 `.env` 中的真实 `DEEPSEEK_API_KEY`；
  * 5. 不包含 `sk-` 形式的真实 API Key（占位符 `sk-...` 允许）；
- * 6. 体积小于 2 MB。
+ * 6. 体积小于 2 MB；
+ * 7. 保留 API 基址的连接预热与首屏搜索预取脚本（丢失会削弱首屏搜索响应速度）。
  *
  * 失败时以非零状态码退出，并输出不含敏感值的诊断信息。
  */
@@ -144,6 +145,18 @@ function checkHtml() {
     pass('包含 API 基址 api.deepseek.com')
   } else {
     fail('未包含 API 基址 api.deepseek.com')
+  }
+
+  if (/<link\b[^>]*\brel\s*=\s*["']?preconnect/i.test(html)) {
+    pass('保留 API 基址连接预热（<link rel="preconnect">）')
+  } else {
+    fail('缺少 API 基址连接预热（<link rel="preconnect">）')
+  }
+
+  if (html.includes('__DS_SEARCH_PREFETCH__')) {
+    pass('保留首屏搜索预取脚本（__DS_SEARCH_PREFETCH__）')
+  } else {
+    fail('缺少首屏搜索预取脚本（__DS_SEARCH_PREFETCH__）')
   }
 
   if (html.includes('__DEV_API_KEY__')) {

@@ -9,6 +9,7 @@ import { useQueryRoute } from '@/composables/useQueryRoute'
 import { useSearch } from '@/composables/useSearch'
 import { searchWeb } from '@/lib/api'
 import { ApiError } from '@/lib/errors'
+import { clearSearchPrefetch, startSearchPrefetch } from '@/lib/searchPrefetch'
 import { useSettings } from '@/stores/settings'
 import { useUi } from '@/stores/ui'
 import type { SearchResult } from '@/types'
@@ -17,11 +18,15 @@ import type { SearchResult } from '@/types'
  * 搜索状态与结果页/搜索框回归（QA P2-1 / P3-5）：
  * - 无 Key 时进入 awaitingKey，关闭 Key 弹窗后显示“需要配置 API Key”而非永久骨架；
  * - 保存 Key 后自动继续被拦截的搜索；
- * - 同一 q 在错误 / 未配置 Key 状态下再次提交会重试（重新请求或重新弹 Key 弹窗）。
+ * - 同一 q 在错误 / 未配置 Key 状态下再次提交会重试（重新请求或重新弹 Key 弹窗）；
+ * - 预取命中时复用响应，参数不一致时回退到正式请求。
  *
- * 网络层 `@/lib/api` 被 mock，不发起真实请求。
+ * 网络层 `@/lib/api` 的 `searchWeb` 被 mock，`normalizeSearchPayload` 保留真实实现。
  */
-vi.mock('@/lib/api', () => ({ searchWeb: vi.fn() }))
+vi.mock('@/lib/api', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/api')>()
+  return { ...actual, searchWeb: vi.fn() }
+})
 
 const mockedSearchWeb = vi.mocked(searchWeb)
 const settingsStore = useSettings()
@@ -67,6 +72,7 @@ beforeEach(() => {
   route.syncFromLocation()
   // 重置搜索单例（同步清空状态）
   void searchStore.run('')
+  clearSearchPrefetch()
 })
 
 afterEach(() => {
@@ -194,6 +200,54 @@ describe('P3-5：同一 q 再次提交的重试行为', () => {
     await flushPromises()
 
     expect(mockedSearchWeb).toHaveBeenCalledTimes(1)
+    expect(searchStore.error.value).toBeNull()
+  })
+})
+
+describe('预取复用', () => {
+  const prefetch = {
+    query: 'DeepSeek',
+    count: 10,
+    oriQuestion: 'DeepSeek',
+    apiKey: 'sk-test-key',
+  }
+
+  it('预取命中时复用响应，不重复请求', async () => {
+    settingsStore.update({ apiKey: 'sk-test-key' })
+    mockedSearchWeb.mockResolvedValueOnce([makeResult()])
+    startSearchPrefetch(prefetch)
+
+    await searchStore.run('DeepSeek')
+
+    expect(mockedSearchWeb).toHaveBeenCalledTimes(1)
+    expect(searchStore.results.value).toHaveLength(1)
+    expect(searchStore.loading.value).toBe(false)
+    expect(searchStore.searched.value).toBe(true)
+  })
+
+  it('预取参数不一致时回退到正式请求', async () => {
+    settingsStore.update({ apiKey: 'sk-test-key' })
+    mockedSearchWeb.mockResolvedValue([makeResult()])
+    startSearchPrefetch({ ...prefetch, query: '其他查询', oriQuestion: '其他查询' })
+
+    await searchStore.run('DeepSeek')
+
+    // 一次被丢弃的预取 + 一次正式请求
+    expect(mockedSearchWeb).toHaveBeenCalledTimes(2)
+    expect(searchStore.results.value).toHaveLength(1)
+  })
+
+  it('预取失败时回退到正式请求', async () => {
+    settingsStore.update({ apiKey: 'sk-test-key' })
+    mockedSearchWeb
+      .mockRejectedValueOnce(new Error('network_error'))
+      .mockResolvedValueOnce([makeResult()])
+    startSearchPrefetch(prefetch)
+
+    await searchStore.run('DeepSeek')
+
+    expect(mockedSearchWeb).toHaveBeenCalledTimes(2)
+    expect(searchStore.results.value).toHaveLength(1)
     expect(searchStore.error.value).toBeNull()
   })
 })
