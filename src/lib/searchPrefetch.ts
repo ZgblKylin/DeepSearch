@@ -24,7 +24,7 @@ import type { SearchResult } from '@/types'
 export const PREFETCH_MAX_AGE_MS = 30_000
 
 /** `index.html` head 内联脚本挂载到 window 的预取记录（两侧共同维护此契约） */
-export interface HeadSearchPrefetch {
+interface HeadSearchPrefetch {
   query: string
   count: number
   /** 折叠空白后的纯文本；空串表示正式请求不发送 ori_question */

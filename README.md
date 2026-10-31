@@ -30,6 +30,7 @@ DeepSearch 是一个纯前端搜索站：浏览器直接调用 DeepSeek Search A
 | 语言 | TypeScript 5.9 |
 | Markdown | `marked` + `dompurify` |
 | 测试 | Vitest 5 + jsdom + `@vue/test-utils` |
+| 分析 | `knip`（死代码）、`rollup-plugin-visualizer`（体积占比） |
 
 ## 快速开始
 
@@ -214,8 +215,11 @@ API Key 以明文保存在 localStorage，任何能执行本页脚本的代码�
 | `npm run preview` | 预览生产构建 |
 | `npm run typecheck` | Vue/TypeScript 类型检查 |
 | `npm run test:run` | 运行全部单元与集成测试 |
+| `npm run lint:deadcode` | 检测未使用的文件、导出与依赖（knip） |
 | `npm run verify:artifacts` | 校验产物结构、首屏预算与 Key 泄漏 |
 | `npm run check` | 依次执行 typecheck、测试、构建、产物校验 |
+
+`npm run build` 会同时生成依赖占比报告 `.report/bundle.html`（treemap，含 gzip/brotli 体积），用于定位异常膨胀；该目录已被忽略，不参与部署。
 
 `npm run check` 是最终验收命令。测试覆盖查询语法、排序、费用、统计、错误归一化、Markdown 清洗、搜索预取、流式响应解析、设置与弹窗、筛选与帮助等；`docs/qa/REPORT.md` 记录真实 API E2E 与代码审查结论。
 

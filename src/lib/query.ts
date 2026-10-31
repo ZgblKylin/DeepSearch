@@ -484,7 +484,7 @@ function formatExcludedWord(value: string): string {
 }
 
 /** 序列化筛选项为 token 数组（不含纯文本） */
-export function serializeFilters(filters: Partial<QueryFilters> | null | undefined): string[] {
+function serializeFilters(filters: Partial<QueryFilters> | null | undefined): string[] {
   const normalized = normalizeFilters(filters)
   const parts: string[] = []
 

@@ -9,13 +9,11 @@ import type {
 } from '@/types'
 import { ApiError, isAbortError, parseErrorResponse } from '@/lib/errors'
 
-export { ApiError, isApiError } from '@/lib/errors'
-
 /** DeepSeek API 基址（浏览器直连，CORS 由服务端反射 Origin） */
-export const API_BASE_URL = 'https://api.deepseek.com'
+const API_BASE_URL = 'https://api.deepseek.com'
 
 /** 各接口超时（毫秒）：Search 20s、Chat 120s、Fetch 30s、测试连接 15s */
-export const API_TIMEOUTS = {
+const API_TIMEOUTS = {
   search: 20_000,
   chat: 120_000,
   fetch: 30_000,

@@ -3,6 +3,7 @@ import { resolve } from 'node:path'
 import { fileURLToPath, URL } from 'node:url'
 
 import vue from '@vitejs/plugin-vue'
+import { visualizer } from 'rollup-plugin-visualizer'
 import { defineConfig, loadEnv, transformWithEsbuild } from 'vite'
 import type { Plugin } from 'vite'
 
@@ -154,7 +155,19 @@ export default defineConfig(({ mode }) => {
 
   return {
     base: './',
-    plugins: [vue(), conditionalCspPlugin(), finalizeHtmlPlugin()],
+    plugins: [
+      vue(),
+      conditionalCspPlugin(),
+      finalizeHtmlPlugin(),
+      // 构建后生成依赖占比报告，用于定位异常膨胀；输出在 .report/ 且不参与部署
+      visualizer({
+        filename: '.report/bundle.html',
+        template: 'treemap',
+        gzipSize: true,
+        brotliSize: true,
+        open: false,
+      }),
+    ],
     define: {
       __DEV_API_KEY__: JSON.stringify(devApiKey),
       __VUE_OPTIONS_API__: 'false',

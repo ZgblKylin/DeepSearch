@@ -18,7 +18,7 @@ import { marked } from 'marked'
 import type { AiSource } from '@/types'
 
 /** 明确禁止的标签（DOMPurify 默认还会去掉 script 等危险标签） */
-export const MARKDOWN_FORBIDDEN_TAGS = [
+const MARKDOWN_FORBIDDEN_TAGS = [
   'img',
   'picture',
   'source',

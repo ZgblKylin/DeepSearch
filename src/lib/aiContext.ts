@@ -23,14 +23,14 @@ export const SUMMARY_ITEM_MAX_CHARS = 1200
 export const SUMMARY_TOTAL_MAX_CHARS = 16000
 
 /** 追问：前 3 条唯一 URL */
-export const FOLLOWUP_RESULT_LIMIT = 3
+const FOLLOWUP_RESULT_LIMIT = 3
 /** 追问：单条网页正文最多 6000 字符 */
 export const FOLLOWUP_ITEM_MAX_CHARS = 6000
 /** 追问：全部材料最多 18000 字符 */
 export const FOLLOWUP_TOTAL_MAX_CHARS = 18000
 
 /** 摘要目标长度（写入系统提示，约 600 字） */
-export const SUMMARY_TARGET_CHARS = 600
+const SUMMARY_TARGET_CHARS = 600
 
 /**
  * 初始摘要系统提示。
@@ -68,7 +68,7 @@ export const FOLLOWUP_SYSTEM_PROMPT = [
 ].join('\n')
 
 /** 背景摘要生成指令（追问会话的第一条 assistant 消息由它生成） */
-export const FOLLOWUP_BACKGROUND_INSTRUCTION = [
+const FOLLOWUP_BACKGROUND_INSTRUCTION = [
   `请先基于以上材料生成一段约 ${SUMMARY_TARGET_CHARS} 字的背景摘要，作为后续追问的上下文：`,
   '先给出结论，再分点列出与用户查询最相关的信息，并用 [n] 标注来源编号。',
   '只输出摘要正文，不要输出思考过程或客套话。',
@@ -226,7 +226,7 @@ function assembleMaterials(
 }
 
 /** 来源数组：索引从 1 开始，标题缺省回退 URL */
-export function toSources(results: readonly SearchResult[]): AiSource[] {
+function toSources(results: readonly SearchResult[]): AiSource[] {
   return results.map((result, index) => ({
     index: index + 1,
     title: inline(result.title) || inline(result.url),

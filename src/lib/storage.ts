@@ -11,8 +11,6 @@ export const STORAGE_KEYS = {
   history: 'deepsearch.history.v1',
 } as const
 
-export type StorageKey = (typeof STORAGE_KEYS)[keyof typeof STORAGE_KEYS]
-
 function getStorage(): Storage | null {
   try {
     if (typeof window === 'undefined' || !window.localStorage) return null
@@ -20,11 +18,6 @@ function getStorage(): Storage | null {
   } catch {
     return null
   }
-}
-
-/** localStorage 是否可用（隐私模式可能不可用） */
-export function hasStorage(): boolean {
-  return getStorage() !== null
 }
 
 /** 读取 JSON；不存在、不可用或解析失败时返回 null */

@@ -12,6 +12,9 @@ coverage/
 qa/
 *.tsbuildinfo
 
+# 构建分析报告
+.report/
+
 # 编辑器与系统文件
 .DS_Store
 Thumbs.db

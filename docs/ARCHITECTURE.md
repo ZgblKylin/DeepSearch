@@ -106,6 +106,8 @@
 
 拆包由 `manualChunks`（vue、markdown）与 `defineAsyncComponent` 共同决定；新增较大组件时优先异步加载，并保持首屏脚本在产物断言的 200 KB 预算内。样式表在构建收尾由 `finalizeHtmlPlugin` 内联进 HTML 后删除源文件。
 
+每次构建还会输出 `.report/bundle.html`（`rollup-plugin-visualizer` 的 treemap），用于核对各依赖占比；该目录已忽略，不参与部署。体积优化以「拆分」为主：Rollup tree-shaking、`__VUE_OPTIONS_API__: false` 与 esbuild 压缩已把可自动裁剪的部分处理完，Vue 运行时与 marked/dompurify 内部没有按功能裁剪的入口。
+
 ## 5. 常见改动入口
 
 | 需求 | 位置 | 注意 |
@@ -125,7 +127,9 @@
 
 `npm run check` 依次执行类型检查、单元与集成测试、生产构建与产物断言。产物断言覆盖：样式已内联、首屏骨架含真实文本、入口与预加载文件存在、`assets/` 无冗余样式、首屏脚本 200 KB 预算、API 基址、密钥不泄漏、连接预热与预取脚本存活、`_headers` 输出。
 
-首屏指标可用 Chrome DevTools 协议的 `Network.emulateNetworkConditions` 与 `Emulation.setCPUThrottlingRate` 模拟移动端 4G 与 4 倍 CPU 降速，读取 `first-contentful-paint` 与 `largest-contentful-paint` 条目复核。
+`npm run lint:deadcode` 用 `knip` 检测未使用的文件、导出与依赖。新增模块时若导出只在本文件内使用，就不要加 `export`——knip 会把多余导出报出来。该检查不在 `npm run check` 内，提交前手动运行。
+
+首屏指标可用 Chrome DevTools 协议的 `Network.emulateNetworkConditions` 与 `Emulation.setCPUThrottlingRate` 模拟移动端 4G 与 4 倍 CPU 降速，读取 `first-contentful-paint` 与 `largest-contentful-paint` 条目复核。注意 Chrome 的 FCP/LCP 只统计文本与图片，纯色块骨架不会提前指标。
 
 构建与测试依赖 esbuild 子进程；在禁止创建子进程的环境中会以 `spawn EPERM` 失败，此时需要完整权限执行。
 

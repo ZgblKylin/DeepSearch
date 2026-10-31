@@ -8,13 +8,13 @@ const FALLBACK_CLASS = 'vt-fallback'
 const FALLBACK_DURATION_MS = 240
 
 /** 用户是否要求减少动效 */
-export function prefersReducedMotion(): boolean {
+function prefersReducedMotion(): boolean {
   if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return false
   return window.matchMedia('(prefers-reduced-motion: reduce)').matches
 }
 
 /** 浏览器是否支持 View Transitions API */
-export function supportsViewTransition(): boolean {
+function supportsViewTransition(): boolean {
   if (typeof document === 'undefined') return false
   return typeof document.startViewTransition === 'function'
 }
@@ -24,7 +24,7 @@ export function supportsViewTransition(): boolean {
  *
  * 移动端整页快照与位移动画的成本高、容易掉帧，直接切换更稳定。
  */
-export function isNarrowViewport(): boolean {
+function isNarrowViewport(): boolean {
   if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return false
   return window.matchMedia('(max-width: 768px)').matches
 }

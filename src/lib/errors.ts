@@ -86,11 +86,6 @@ export function statusSuggestion(status: number | null): string {
   return ''
 }
 
-/** 判断是否为 ApiError */
-export function isApiError(value: unknown): value is ApiError {
-  return value instanceof ApiError
-}
-
 /** 判断是否为调用方主动取消（不弹错误弹窗） */
 export function isAbortError(value: unknown): boolean {
   if (typeof DOMException !== 'undefined' && value instanceof DOMException) {

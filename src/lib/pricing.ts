@@ -15,7 +15,7 @@ import type { AiModel, ChatUsage } from '@/types'
 export type PriceTier = 'peak' | 'offPeak'
 
 /** 高峰 / 低谷双价 */
-export interface TieredPrice {
+interface TieredPrice {
   /** 高峰价（元 / 百万 tokens） */
   peak: number
   /** 空闲价（元 / 百万 tokens） */
@@ -54,12 +54,12 @@ export const MODEL_PRICING: Record<AiModel, ModelPricing> = {
 }
 
 /** 历史 / 价格别名 → 正式模型名 */
-export const MODEL_ALIASES: Record<string, AiModel> = {
+const MODEL_ALIASES: Record<string, AiModel> = {
   'deepseek-v4-flash': 'deepseek-flash',
 }
 
 /** 未知模型名的兜底模型（价格按 Flash 近似） */
-export const FALLBACK_MODEL: AiModel = 'deepseek-flash'
+const FALLBACK_MODEL: AiModel = 'deepseek-flash'
 
 /** 模型价格表中的模型顺序（用于统计表等展示） */
 export const PRICING_MODEL_ORDER: readonly AiModel[] = [
@@ -70,15 +70,15 @@ export const PRICING_MODEL_ORDER: readonly AiModel[] = [
 /** Search 每次成功请求价格（元） */
 export const SEARCH_PRICE_PER_REQUEST = 0.005
 /** Fetch 每次成功请求价格（元） */
-export const FETCH_PRICE_PER_REQUEST = 0.005
+const FETCH_PRICE_PER_REQUEST = 0.005
 /** 计费阶梯：每 1000 次成功请求 5 元（与 0.005 元/次等价） */
-export const BILLABLE_UNIT_SIZE = 1000
-export const BILLABLE_UNIT_PRICE = 5
+const BILLABLE_UNIT_SIZE = 1000
+const BILLABLE_UNIT_PRICE = 5
 
 /** 峰谷时段判定使用的时区 */
-export const PEAK_TIME_ZONE = 'Asia/Shanghai'
+const PEAK_TIME_ZONE = 'Asia/Shanghai'
 /** 高峰小时区间（左闭右开，本地时间） */
-export const PEAK_HOUR_RANGES: ReadonlyArray<readonly [number, number]> = [
+const PEAK_HOUR_RANGES: ReadonlyArray<readonly [number, number]> = [
   [9, 12],
   [14, 18],
 ]
