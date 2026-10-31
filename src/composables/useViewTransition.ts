@@ -19,6 +19,16 @@ export function supportsViewTransition(): boolean {
   return typeof document.startViewTransition === 'function'
 }
 
+/**
+ * 是否为窄屏视口。
+ *
+ * 移动端整页快照与位移动画的成本高、容易掉帧，直接切换更稳定。
+ */
+export function isNarrowViewport(): boolean {
+  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return false
+  return window.matchMedia('(max-width: 768px)').matches
+}
+
 function runFallbackTransition(update: () => void): void {
   if (typeof document === 'undefined') {
     update()
@@ -35,6 +45,7 @@ function runFallbackTransition(update: () => void): void {
 
 /**
  * 首页 ↔ 结果页的搜索框位移动画（PLAN 3.1）：
+ * - 窄屏或 reduced-motion 时直接切换，不做快照与动画；
  * - 支持 View Transitions 且未要求 reduced-motion 时使用原生过渡；
  * - 否则降级为 `vt-fallback` 类的淡入/位移动画（见 base.css）。
  *
@@ -46,7 +57,11 @@ export function useViewTransition() {
       update()
       return
     }
-    if (!prefersReducedMotion() && typeof document.startViewTransition === 'function') {
+    if (isNarrowViewport() || prefersReducedMotion()) {
+      update()
+      return
+    }
+    if (typeof document.startViewTransition === 'function') {
       try {
         const transition = document.startViewTransition(async () => {
           update()

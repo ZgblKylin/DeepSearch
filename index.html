@@ -152,7 +152,28 @@
     </script>
   </head>
   <body>
-    <div id="app"></div>
+    <!--
+      首屏骨架：脚本执行前渲染第一帧，避免空容器导致的 FCP 延迟。
+      文本必须是真实文案——纯色块不参与 FCP/LCP 统计；布局对齐首页，
+      样式见 src/styles/base.css，Vue 接管后会整体替换。
+    -->
+    <div id="app">
+      <div class="boot-app" aria-hidden="true">
+        <div class="boot-app__topbar"></div>
+        <div class="boot-app__main">
+          <div class="boot-home">
+            <div class="boot-home__hero">
+              <div class="boot-home__brand">
+                <div class="boot-home__logo"></div>
+                <h1 class="boot-home__title">DeepSearch</h1>
+              </div>
+              <p class="boot-home__tagline">用 DeepSeek 搜索，让 AI 帮你读懂结果。</p>
+              <div class="boot-home__search"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

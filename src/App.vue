@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, watch } from 'vue'
+import { defineAsyncComponent, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
 import FooterDisclaimer from '@/components/layout/FooterDisclaimer.vue'
 import TopBar from '@/components/layout/TopBar.vue'
+import ResultsSkeleton from '@/components/results/ResultsSkeleton.vue'
 import ApiKeyModal from '@/components/settings/ApiKeyModal.vue'
 import ErrorModal from '@/components/settings/ErrorModal.vue'
-import SettingsPanel from '@/components/settings/SettingsPanel.vue'
 import ToastHost from '@/components/ui/ToastHost.vue'
 import { useAi } from '@/composables/useAi'
 import { useQueryRoute } from '@/composables/useQueryRoute'
@@ -14,11 +14,33 @@ import { useTheme } from '@/composables/useTheme'
 import { useSettings } from '@/stores/settings'
 import { useUi } from '@/stores/ui'
 import HomeView from '@/views/HomeView.vue'
-import ResultsView from '@/views/ResultsView.vue'
+
+/**
+ * 结果页按需加载：首页首屏不需要结果列表、筛选栏与 AI 面板。
+ *
+ * 加载期间用搜索结果骨架衔接，避免容器被接管后出现空白帧。
+ */
+const ResultsView = defineAsyncComponent({
+  loader: () => import('@/views/ResultsView.vue'),
+  loadingComponent: ResultsSkeleton,
+  delay: 0,
+})
+
+/** 设置面板按需加载：仅在打开时下载与执行 */
+const SettingsPanel = defineAsyncComponent(() => import('@/components/settings/SettingsPanel.vue'))
 
 const { query, syncFromLocation } = useQueryRoute()
 const { settings, seedDevKey } = useSettings()
-const { showToast } = useUi()
+const { ui, showToast } = useUi()
+
+/** 设置面板首次打开后才挂载，之后保留以维持关闭过渡 */
+const settingsPanelRequested = ref(ui.settingsOpen)
+watch(
+  () => ui.settingsOpen,
+  (open) => {
+    if (open) settingsPanelRequested.value = true
+  },
+)
 const {
   query: searchQuery,
   run: runSearch,
@@ -104,7 +126,7 @@ onBeforeUnmount(() => {
 
     <FooterDisclaimer />
 
-    <SettingsPanel />
+    <SettingsPanel v-if="settingsPanelRequested" />
     <ApiKeyModal />
     <ErrorModal />
     <ToastHost />

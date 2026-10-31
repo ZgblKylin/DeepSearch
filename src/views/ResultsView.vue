@@ -1,7 +1,6 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, defineAsyncComponent } from 'vue'
 
-import AiSidebar from '@/components/ai/AiSidebar.vue'
 import FilterBar from '@/components/results/FilterBar.vue'
 import ResultsHeader from '@/components/results/ResultsHeader.vue'
 import ResultsList from '@/components/results/ResultsList.vue'
@@ -10,12 +9,17 @@ import { useSearch } from '@/composables/useSearch'
 import { useSettings } from '@/stores/settings'
 
 /**
+ * AI 面板按需加载：结果列表先呈现，Markdown 渲染与对话链路随后加载。
+ */
+const AiSidebar = defineAsyncComponent(() => import('@/components/ai/AiSidebar.vue'))
+
+/**
  * 结果页布局（PLAN 3.3）：
  * 顶部紧凑搜索框由 TopBar 居中提供（结果页唯一一个 `site-search` 过渡目标），
  * 本视图负责结果列 + 右侧 sticky AI 侧边栏；窗口变窄时单列。
  *
  * AI 模式关闭、没有结果或 AI 尚未建立会话时不保留 380px 空侧栏，
- * 结果列单列占满（QA P2-4 后续补丁 T7b，以及 AI 对话重构后的空态）。
+ * 结果列单列占满。
  */
 const { settings } = useSettings()
 const { results } = useSearch()

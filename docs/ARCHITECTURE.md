@@ -4,7 +4,9 @@
 
 ## 1. 系统形态
 
-纯前端单页应用，没有服务端、数据库与构建期密钥。浏览器直接调用 DeepSeek 的 Search、Chat Completions 与 Fetch 接口，CORS 与客户端额度因此是外部依赖。构建产物是单个 HTML 文件，JS、CSS、站点图标与 favicon 全部内联。
+纯前端单页应用，没有服务端、数据库与构建期密钥。浏览器直接调用 DeepSeek 的 Search、Chat Completions 与 Fetch 接口，CORS 与客户端额度因此是外部依赖。
+
+构建产物是多文件静态站点：`index.html` 内联全部样式与首屏骨架，脚本按首屏需要拆分——入口 chunk 只含 Vue 运行时、应用外壳与首页，结果页、AI 面板（含 Markdown 渲染）与设置面板在首次使用时才加载。`public/_headers` 随产物输出，供 Cloudflare 配置缓存策略。
 
 技术栈为 Vue 3.5、TypeScript 5.9 与 Vite 7。不使用 Vue Router，查询串 `q` 即路由状态；测试使用 Vitest 与 jsdom。
 
@@ -23,10 +25,12 @@
 | `src/composables/` | 路由、搜索、AI、主题、过渡、交互 | 状态为模块级单例 |
 | `src/lib/` | 请求、语法、上下文、Markdown、排序、计费、存储、预取 | 以纯函数为主 |
 | `src/stores/` | settings、ui、usage 单例 | 负责 localStorage 归一化读写 |
+| `src/styles/` | 设计令牌、基础重置、首屏骨架样式 | 骨架样式供 `index.html` 静态副本复用 |
 | `src/types.ts` | 共享类型与默认值 | 默认值的唯一来源 |
-| [`index.html`](../index.html) | CSP、首屏主题脚本、搜索预取脚本 | 两个内联脚本必须保持同步执行 |
-| [`vite.config.ts`](../vite.config.ts) | 单文件构建、产物压缩、Vue 特性开关 | |
-| [`scripts/verify-singlefile.mjs`](../scripts/verify-singlefile.mjs) | 构建产物断言 | |
+| [`index.html`](../index.html) | CSP、首屏骨架、主题脚本、搜索预取脚本 | 两个内联脚本必须保持同步执行 |
+| [`public/_headers`](../public/_headers) | Cloudflare 缓存策略 | HTML 短缓存，`/assets/*` 长缓存 |
+| [`vite.config.ts`](../vite.config.ts) | 多文件构建、拆包、样式内联、Vue 特性开关 | |
+| [`scripts/verify-artifacts.mjs`](../scripts/verify-artifacts.mjs) | 构建产物断言 | |
 | `tests/` | 单元与集成测试 | |
 
 ## 3. 数据流
@@ -86,6 +90,22 @@
 
 `useSettings`、`useUi`、`useUsage`、`useSearch` 与 `useAi` 都是模块级单例，组件直接调用即共享同一份状态。`useSettings.update` 立即持久化；`useUi.requireApiKey(action)` 在已有 Key 时同步执行回调，否则缓存动作并打开 Key 弹窗。
 
+### 4.3 构建与产物
+
+构建按首屏需要拆分：入口只含外壳与首页，其余在首次使用时加载。
+
+| 产物 | 内容 | 加载时机 |
+| --- | --- | --- |
+| `index.html` | 首屏骨架、内联样式、主题与预取脚本 | 首屏 |
+| `assets/index-*.js` | 应用外壳、首页、顶栏、`lib` 核心 | 首屏 |
+| `assets/vue-*.js` | Vue 运行时（`modulepreload` 预加载） | 首屏 |
+| `assets/ResultsView-*.js` | 结果页、筛选栏、结果卡片与状态视图 | 进入结果页 |
+| `assets/AiSidebar-*.js` | AI 侧栏与对话 | AI 面板出现 |
+| `assets/markdown-*.js` | `marked` 与 `dompurify` | AI 面板出现 |
+| `assets/SettingsPanel-*.js` | 设置面板 | 首次打开设置 |
+
+拆包由 `manualChunks`（vue、markdown）与 `defineAsyncComponent` 共同决定；新增较大组件时优先异步加载，并保持首屏脚本在产物断言的 200 KB 预算内。样式表在构建收尾由 `finalizeHtmlPlugin` 内联进 HTML 后删除源文件。
+
 ## 5. 常见改动入口
 
 | 需求 | 位置 | 注意 |
@@ -93,25 +113,29 @@
 | 修改搜索请求体 | [`lib/api.ts`](../src/lib/api.ts) 与 [`index.html`](../index.html) | 两处必须逐字节一致，否则预取永远失配 |
 | 调整默认设置 | [`types.ts`](../src/types.ts) 的 `DEFAULT_SETTINGS` | head 预取脚本不得硬编码默认值 |
 | 调整返回条数范围 | `types.ts` 的 `RESULT_COUNT_MIN` 与 `RESULT_COUNT_MAX` | 同步 head 脚本的收敛区间 |
+| 修改首页首帧 | [`views/HomeView.vue`](../src/views/HomeView.vue) 与 [`index.html`](../index.html) 的骨架 | 结构、文案、字号需对齐，否则首帧跳动 |
 | 修改 AI 提示词或上下文 | [`lib/aiContext.ts`](../src/lib/aiContext.ts) | 单条与总量截断常量也在此文件 |
 | 修改 Markdown 安全策略 | [`lib/markdown.ts`](../src/lib/markdown.ts) | 清洗配置与引用转换同在此文件 |
 | 新增图标 | [`components/ui/Icon.vue`](../src/components/ui/Icon.vue) | 未知名称回退 `help-circle` |
-| 修改主题色或间距 | [`styles/tokens.css`](../src/styles/tokens.css) | 首屏主题脚本同步，避免深色模式闪白 |
-| 调整构建断言 | [`scripts/verify-singlefile.mjs`](../scripts/verify-singlefile.mjs) | 断言语义必须与产物事实一致 |
+| 修改主题色或间距 | [`styles/tokens.css`](../src/styles/tokens.css) | 首屏主题脚本与骨架同步，避免深色模式闪白 |
+| 调整构建断言 | [`scripts/verify-artifacts.mjs`](../scripts/verify-artifacts.mjs) | 断言语义必须与产物事实一致 |
 | 新增本地存储 | [`lib/storage.ts`](../src/lib/storage.ts) 的 `STORAGE_KEYS` | 读取一律经过归一化 |
 
 ## 6. 测试与验证
 
-`npm run check` 依次执行类型检查、单元与集成测试、生产构建与产物断言。产物断言覆盖单文件、无外链、API 基址、密钥不泄漏、连接预热与预取脚本存活。
+`npm run check` 依次执行类型检查、单元与集成测试、生产构建与产物断言。产物断言覆盖：样式已内联、首屏骨架含真实文本、入口与预加载文件存在、`assets/` 无冗余样式、首屏脚本 200 KB 预算、API 基址、密钥不泄漏、连接预热与预取脚本存活、`_headers` 输出。
+
+首屏指标可用 Chrome DevTools 协议的 `Network.emulateNetworkConditions` 与 `Emulation.setCPUThrottlingRate` 模拟移动端 4G 与 4 倍 CPU 降速，读取 `first-contentful-paint` 与 `largest-contentful-paint` 条目复核。
 
 构建与测试依赖 esbuild 子进程；在禁止创建子进程的环境中会以 `spawn EPERM` 失败，此时需要完整权限执行。
 
 ## 7. 约束与陷阱
 
-- **单文件产物**：所有资源内联。新增外链脚本或样式会让产物断言失败；当前产物约 342 KB，gzip 约 113 KB。
+- **多文件产物**：首屏入口 chunk 与 Vue 运行时约 155 KB（gzip 61 KB），懒加载 chunk 不参与首屏。新增依赖默认进入入口 chunk，改动后先看产物断言的首屏预算。
+- **首屏骨架**：`index.html` 的 `#app` 是首页的静态副本，必须包含真实文本——纯色块不参与 FCP/LCP 统计。改首页结构或文案时同步骨架，否则首帧跳动。
 - **CSP 严格**：`script-src` 只允许 self 与内联脚本，`connect-src` 只允许 self 与 `https://api.deepseek.com`。新增外部请求域必须同步修改 `index.html` 与产物断言。
 - **Key 边界**：`.env` 中的 Key 只在开发模式注入，生产构建注入空字符串；产物不得包含真实 Key。
-- **部署路径**：不要使用 `./` 一类相对路径。首页就是当前 `location.pathname`；`./` 在无尾斜杠的子路径（如 `/search`）下会解析到上一层目录，导致新标签打开时离开应用。
+- **部署路径**：资源引用是相对路径，入口 URL 必须以 `/` 结尾。`/search` 会被当作文件，把 `./assets/*` 解析到站点根并 404；子路径部署需配置 `/search` → `/search/` 重定向。
 - **预取一致性**：head 脚本与正式请求的参数必须完全一致。默认值、条数范围、请求体字段任何一侧改动都要同步另一侧。
-- **View Transition**：`view-transition-name: site-search` 全页只能出现一次，因此结果页只在顶栏渲染搜索框。
+- **View Transition**：`view-transition-name: site-search` 全页只能出现一次，因此结果页只在顶栏渲染搜索框；窄屏与「减少动效」偏好下跳过动画。
 - **AI 计费**：摘要与追问都会产生 Token 费用；同一次搜索的结果指纹未变时复用已有摘要，不重复请求。

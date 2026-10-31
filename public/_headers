@@ -1,0 +1,11 @@
+# Cloudflare Pages 响应头。
+# HTML 短缓存：重复访问直接命中边缘缓存，发布后最多 5 分钟收敛。
+# 构建产物带内容哈希，可以长期缓存。
+/index.html
+  Cache-Control: public, max-age=300, stale-while-revalidate=600
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+  X-Content-Type-Options: nosniff

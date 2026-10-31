@@ -1,13 +1,12 @@
-import { readFileSync, writeFileSync } from 'node:fs'
+import { readFileSync, unlinkSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { fileURLToPath, URL } from 'node:url'
 
 import vue from '@vitejs/plugin-vue'
 import { defineConfig, loadEnv, transformWithEsbuild } from 'vite'
 import type { Plugin } from 'vite'
-import { viteSingleFile } from 'vite-plugin-singlefile'
 
-/** 仅开发模式需要的 HMR WebSocket 来源（生产构建移除，PLAN 3.8 / QA P2-4） */
+/** 仅开发模式需要的 HMR WebSocket 来源（生产构建移除） */
 const DEV_WS_CONNECT_SRC = ' ws://localhost:* ws://127.0.0.1:*'
 /** index.html CSP 中的占位符，dev 注入 ws 白名单，build 替换为空串 */
 const CSP_DEV_WS_PLACEHOLDER = '__CSP_DEV_WS__'
@@ -27,14 +26,35 @@ function conditionalCspPlugin(): Plugin {
   }
 }
 
+/** 把 `<link rel="stylesheet">` 引用的样式表内联为 `<style>`，并返回已内联的文件路径 */
+function inlineStylesheets(
+  html: string,
+  distDir: string,
+): { html: string; inlined: string[] } {
+  const inlined: string[] = []
+  const result = html.replace(/<link\b[^>]*\brel\s*=\s*["']stylesheet["'][^>]*>/gi, (tag) => {
+    const href = /href\s*=\s*["']([^"']+)["']/i.exec(tag)?.[1]
+    if (!href) return tag
+    const relative = href.replace(/^\.?\//, '')
+    const path = resolve(distDir, relative)
+    try {
+      const css = readFileSync(path, 'utf8')
+      inlined.push(path)
+      return `<style>${css}</style>`
+    } catch {
+      return tag
+    }
+  })
+  return { html: result, inlined }
+}
+
 /**
- * 压缩单文件 HTML。
+ * 压缩 HTML：script/style 体内内容先移出，避免折叠空白破坏代码与字符串。
  *
- * Vite 只压缩 rollup 产出的 chunk，`index.html` 中手写的内联脚本与 HTML 骨架原样输出。
- * 这里把 script/style 体内内容移出（避免压缩破坏代码与字符串），对内联脚本用与构建
- * 相同的压缩器处理，其余部分移除 HTML 注释并折叠标签间空白。
+ * 只有 head 中手写的内联脚本需要压缩（module chunk 由 Vite 压缩），
+ * `legalComments: 'none'` 同时移除注释。
  */
-async function minifyHtml(html: string): Promise<string> {
+async function compactHtml(html: string): Promise<string> {
   const blocks: string[] = []
   let output = ''
   let cursor = 0
@@ -54,7 +74,6 @@ async function minifyHtml(html: string): Promise<string> {
     }
 
     let content = body
-    // module chunk 已由 Vite 压缩，只有 head 中手写的内联脚本需要处理
     const isModuleChunk = tag === 'script' && /\btype\s*=\s*["']module["']/.test(attrs)
     if (tag === 'script' && !isModuleChunk) {
       const minified = await transformWithEsbuild(body, 'inline-script.js', {
@@ -83,35 +102,51 @@ async function minifyHtml(html: string): Promise<string> {
   )
 }
 
-/** 构建结束后压缩 `dist/index.html`：只作用于产物，开发模式保持源码可读 */
-function minifyHtmlPlugin(): Plugin {
+/**
+ * 构建收尾处理 `dist/index.html`：内联首屏样式表并压缩 HTML。
+ *
+ * 只作用于产物，开发模式保持源码可读。样式表内联让首屏少一次往返，
+ * 内联后删除源样式表避免部署冗余；内联脚本压缩由 `compactHtml` 负责，
+ * Vite 只压缩 rollup 产出的 chunk。
+ */
+function finalizeHtmlPlugin(): Plugin {
   let outDir = 'dist'
   return {
-    name: 'deepsearch:minify-html',
+    name: 'deepsearch:finalize-html',
     apply: 'build',
     configResolved(config) {
       outDir = config.build.outDir
     },
     async closeBundle() {
-      const file = resolve(process.cwd(), outDir, 'index.html')
+      const dir = resolve(process.cwd(), outDir)
+      const file = resolve(dir, 'index.html')
       let html: string
       try {
         html = readFileSync(file, 'utf8')
       } catch {
         return
       }
-      writeFileSync(file, await minifyHtml(html))
+      const { html: inlined, inlined: stylesheets } = inlineStylesheets(html, dir)
+      writeFileSync(file, await compactHtml(inlined))
+      for (const stylesheet of stylesheets) {
+        try {
+          unlinkSync(stylesheet)
+        } catch {
+          // 删除失败不影响产物可用性
+        }
+      }
     },
   }
 }
 
 /**
- * 单文件构建 + 开发 Key 注入。
+ * 多文件构建 + 开发 Key 注入。
  *
- * - 开发模式（vite serve）从 `.env` 读取 DEEPSEEK_API_KEY，注入 `__DEV_API_KEY__`。
- * - 生产构建（vite build，mode = production）注入空字符串，真实 Key 永不进入 dist。
- * - `.env` 不参与 import，仅通过 define 字符串替换注入；构建产物不含其它环境变量。
- * - 全部组件使用 `<script setup>`，关闭 Vue 的 Options API 运行时以减小产物体积。
+ * - 首屏只加载 Vue、应用外壳与首页；结果页、AI 面板与设置面板按需加载；
+ * - 样式合并为单个文件并在构建收尾内联，避免首屏额外往返；
+ * - 开发模式（vite serve）从 `.env` 读取 DEEPSEEK_API_KEY，注入 `__DEV_API_KEY__`；
+ *   生产构建注入空字符串，真实 Key 永不进入 dist；
+ * - 全部组件使用 `<script setup>`，关闭 Vue 的 Options API 运行时以减小体积。
  */
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
@@ -119,7 +154,7 @@ export default defineConfig(({ mode }) => {
 
   return {
     base: './',
-    plugins: [vue(), conditionalCspPlugin(), viteSingleFile(), minifyHtmlPlugin()],
+    plugins: [vue(), conditionalCspPlugin(), finalizeHtmlPlugin()],
     define: {
       __DEV_API_KEY__: JSON.stringify(devApiKey),
       __VUE_OPTIONS_API__: 'false',
@@ -135,8 +170,16 @@ export default defineConfig(({ mode }) => {
       target: 'es2022',
       cssCodeSplit: false,
       sourcemap: false,
-      assetsInlineLimit: 100_000_000,
-      chunkSizeWarningLimit: 2000,
+      assetsInlineLimit: 4096,
+      chunkSizeWarningLimit: 700,
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            vue: ['vue'],
+            markdown: ['marked', 'dompurify'],
+          },
+        },
+      },
     },
     server: {
       port: 5173,

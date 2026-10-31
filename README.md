@@ -26,7 +26,7 @@ DeepSearch 是一个纯前端搜索站：浏览器直接调用 DeepSeek Search A
 | 层 | 选择 |
 | --- | --- |
 | 框架 | Vue 3.5 |
-| 构建 | Vite 7 + `vite-plugin-singlefile` |
+| 构建 | Vite 7，多文件产物 + 按需加载 |
 | 语言 | TypeScript 5.9 |
 | Markdown | `marked` + `dompurify` |
 | 测试 | Vitest 5 + jsdom + `@vue/test-utils` |
@@ -54,7 +54,7 @@ npm install --cache .npm-cache
 
 `.env` 中的 `DEEPSEEK_API_KEY` 只在 Vite 开发模式下通过 `__DEV_API_KEY__` 注入。应用启动时，如果 localStorage 里没有 Key，会把该值写入作为初始 Key，方便本地验证；如果已经保存过 Key，则不会覆盖。
 
-生产构建不会注入 `.env` 中的 Key，`dist/index.html` 不包含真实 Key。`npm run verify:singlefile` 会检查这一点。
+生产构建不会注入 `.env` 中的 Key，产物不包含真实 Key。`npm run verify:artifacts` 会检查这一点。
 
 ## 构建与部署
 
@@ -62,11 +62,13 @@ npm install --cache .npm-cache
 npm run build
 ```
 
-构建完成后，入口文件是 `dist/index.html`，JavaScript、CSS、图标、favicon 全部内联；构建会压缩内联脚本并折叠 HTML 空白。`dist/` 是被忽略的构建目录，只包含这一个文件；可以直接打开，也可以使用：
+构建完成后，产物是 `dist/` 目录：`index.html` 内联了全部样式与首屏骨架，脚本按首屏需要拆分——入口 chunk 只含 Vue 运行时、应用外壳与首页，结果页、AI 面板（含 Markdown 渲染）与设置面板在首次使用时才加载。`dist/` 是被忽略的构建目录，可以用：
 
 ```bash
 npm run preview
 ```
+
+部署在子路径（例如 `https://example.com/search`）时，入口 URL 必须以 `/` 结尾。资源引用是相对路径，`/search` 会被浏览器当作文件，从而把 `./assets/*` 解析到站点根目录并 404；请在托管平台把 `/search` 重定向到 `/search/`。
 
 ### GitHub Pages
 
@@ -76,7 +78,7 @@ npm run preview
 2. 推送到 `main` 分支，workflow（`.github/workflows/pages.yml`）会自动执行 `npm ci`、`npm run check`，并上传 `dist/`。
 3. 也可以在 Actions 页面手动运行 `Deploy GitHub Pages` 的 `workflow_dispatch`。
 
-workflow 失败时不会部署，线上保持上一次成功版本。发布地址由 `deploy` job 的 `page_url` 输出提供；项目使用相对路径与单文件内联资源，不需要配置 `base` 或重写规则。
+workflow 失败时不会部署，线上保持上一次成功版本。发布地址由 `deploy` job 的 `page_url` 输出提供；资源使用相对路径，不需要配置 `base`。Pages 会把 `/DeepSearch` 规范化为 `/DeepSearch/`，因此子路径部署开箱可用。
 
 ### Cloudflare Pages
 
@@ -100,7 +102,9 @@ workflow 失败时不会部署，线上保持上一次成功版本。发布地�
 - Direct Upload 项目创建后不能切换为 Cloudflare 的 Git 集成；使用 Git 集成需要新建项目。
 - Cloudflare 建议新项目使用 Workers 静态资源，Pages 仍然可用。迁移时添加 `wrangler.jsonc`（`assets.directory` 指向 `./dist`），并把部署命令改为 `wrangler deploy`。
 - 不需要环境变量；站点运行时由用户在浏览器里配置自己的 DeepSeek API Key。
-- 路由使用当前 pathname 加 `?q=`，不需要 SPA 重写规则；`dist/` 只包含 `index.html`，也没有自定义 `_headers` 或 `_redirects`。
+- 路由使用当前 pathname 加 `?q=`，不需要 SPA 重写规则。
+- 产物自带 `_headers`：`/assets/*` 长缓存（文件名含内容哈希），HTML 短缓存 5 分钟；发布后最多 5 分钟收敛。
+- 部署在子路径（如 `https://example.com/search`）时需在 Cloudflare 把 `/search` 重定向到 `/search/`，否则相对资源路径会解析到站点根。
 
 若要使用 Cloudflare 的原生 Git 集成（由 Pages 自行构建），需要新建项目，并配置为：
 
@@ -206,12 +210,12 @@ API Key 以明文保存在 localStorage，任何能执行本页脚本的代码�
 | 命令 | 作用 |
 | --- | --- |
 | `npm run dev` | 启动开发服务器 |
-| `npm run build` | 类型检查并构建单文件到 `dist/` |
+| `npm run build` | 类型检查并构建产物到 `dist/` |
 | `npm run preview` | 预览生产构建 |
 | `npm run typecheck` | Vue/TypeScript 类型检查 |
 | `npm run test:run` | 运行全部单元与集成测试 |
-| `npm run verify:singlefile` | 校验 `dist/index.html` 与 Key 泄漏 |
-| `npm run check` | 依次执行 typecheck、测试、构建、单文件校验 |
+| `npm run verify:artifacts` | 校验产物结构、首屏预算与 Key 泄漏 |
+| `npm run check` | 依次执行 typecheck、测试、构建、产物校验 |
 
 `npm run check` 是最终验收命令。测试覆盖查询语法、排序、费用、统计、错误归一化、Markdown 清洗、搜索预取、流式响应解析、设置与弹窗、筛选与帮助等；`docs/qa/REPORT.md` 记录真实 API E2E 与代码审查结论。
 
@@ -224,8 +228,10 @@ src/
   composables/            路由、搜索、AI、主题、View Transition
   lib/                    API 客户端、查询解析、搜索预取、排序、费用、Markdown、存储
   stores/                 settings / usage / ui 单例
+  styles/                 设计令牌与全局样式（含首屏骨架）
   types.ts                共享类型与默认值
-scripts/verify-singlefile.mjs
+public/_headers           Cloudflare 缓存策略
+scripts/verify-artifacts.mjs  构建产物校验
 tests/                    unit / integration
 docs/                     架构说明与 QA 报告
 .github/workflows/pages.yml  GitHub Pages 构建与部署
@@ -244,7 +250,7 @@ docs/                     架构说明与 QA 报告
 - 纯前端直连依赖 DeepSeek API 的 CORS；若上游调整策略，需要代理。
 - `localStorage` 不可用时，设置、统计与搜索历史只在当前页面会话内有效。
 - `site_icon` 由 API 返回，图片可能因网络、CSP 或第三方资源策略加载失败；失败时回退为本地字母头像。
-- View Transitions 在部分浏览器不支持，搜索框会改用淡入/位移动画。
+- View Transitions 在部分浏览器不支持，搜索框会改用淡入/位移动画；窄屏与「减少动效」偏好下直接切换、不做动画。
 - 本项目的 AI 摘要与搜索结果仅供参考，不构成任何专业建议。
 
 ## 免责声明
