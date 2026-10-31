@@ -219,6 +219,20 @@ function checkHtml() {
     fail(`首屏脚本 ${firstScreenBytes} 字节，超出 200 KB 预算（拆包可能失效）`)
   }
 
+  // 结果页动态 chunk 的预加载路径：占位符必须被替换，且指向真实文件
+  if (html.includes('__DS_RESULTS_CHUNK__')) {
+    fail('结果页预加载占位符未被构建替换')
+  } else {
+    const resultsChunk = /["']([^"']*assets\/ResultsView-[^"']+\.js)["']/.exec(html)?.[1]
+    if (!resultsChunk) {
+      fail('未找到结果页 chunk 的预加载路径')
+    } else if (existsSync(toDiskPath(resultsChunk))) {
+      pass(`结果页 chunk 已注入预加载路径（${resultsChunk.split('/').pop()}）`)
+    } else {
+      fail(`结果页预加载路径指向不存在的文件：${resultsChunk}`)
+    }
+  }
+
   // 设置 DEPLOY_BASE 时资源引用必须是绝对路径，否则无尾斜杠入口会解析错误
   const deployBase = process.env.DEPLOY_BASE?.trim()
   if (deployBase && deployBase !== './') {

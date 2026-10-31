@@ -106,6 +106,8 @@
 
 拆包由 `manualChunks`（vue、markdown）与 `defineAsyncComponent` 共同决定；新增较大组件时优先异步加载，并保持首屏脚本在产物断言的 200 KB 预算内。样式表在构建收尾由 `finalizeHtmlPlugin` 内联进 HTML 后删除源文件。
 
+结果页是动态 import，若不处理会多一个完整 RTT（PageSpeed 的 Network dependency tree 把关键路径拉长到 413ms）。构建收尾把 `ResultsView` chunk 的真实路径注入 `index.html` 的预加载占位符，head 内联脚本检测到 `?q=` 时立即 `modulepreload`，首页则不加载。新增其它「首屏必需但按需加载」的 chunk 时照此处理。
+
 每次构建还会输出 `.report/bundle.html`（`rollup-plugin-visualizer` 的 treemap），用于核对各依赖占比；该目录已忽略，不参与部署。体积优化以「拆分」为主：Rollup tree-shaking、`__VUE_OPTIONS_API__: false` 与 esbuild 压缩已把可自动裁剪的部分处理完，Vue 运行时与 marked/dompurify 内部没有按功能裁剪的入口。
 
 ## 5. 常见改动入口

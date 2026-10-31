@@ -1,4 +1,4 @@
-import { readFileSync, unlinkSync, writeFileSync } from 'node:fs'
+import { readFileSync, readdirSync, unlinkSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { fileURLToPath, URL } from 'node:url'
 
@@ -110,7 +110,32 @@ async function compactHtml(html: string): Promise<string> {
 }
 
 /**
- * 构建收尾处理 `dist/index.html`：内联首屏样式表并压缩 HTML。
+ * 把结果页动态 chunk 的真实路径注入 HTML 的预加载占位符。
+ *
+ * 结果页是 `defineAsyncComponent` 动态加载，浏览器要等主 bundle 执行后才发现它；
+ * 在 head 里提前 modulepreload 可以让它与主 bundle 并行下载。文件名带内容哈希，
+ * 只能构建后从 `assets/` 读取，并按已注入的入口 chunk 推断 base 前缀。
+ */
+function injectResultsPreload(html: string, distDir: string): string {
+  const placeholder = '__DS_RESULTS_CHUNK__'
+  if (!html.includes(placeholder)) return html
+
+  const entryRef = /src="([^"]*assets\/index-[^"]+\.js)"/.exec(html)?.[1]
+  let resultsFile: string | undefined
+  try {
+    resultsFile = readdirSync(resolve(distDir, 'assets')).find(
+      (name) => name.startsWith('ResultsView-') && name.endsWith('.js'),
+    )
+  } catch {
+    resultsFile = undefined
+  }
+
+  if (!entryRef || !resultsFile) return html.split(placeholder).join('')
+  return html.split(placeholder).join(entryRef.replace(/index-[^"]+\.js$/, resultsFile))
+}
+
+/**
+ * 构建收尾处理 `dist/index.html`：内联首屏样式表、注入结果页预加载路径并压缩 HTML。
  *
  * 只作用于产物，开发模式保持源码可读。样式表内联让首屏少一次往返，
  * 内联后删除源样式表避免部署冗余；内联脚本压缩由 `compactHtml` 负责，
@@ -134,7 +159,8 @@ function finalizeHtmlPlugin(): Plugin {
         return
       }
       const { html: inlined, inlined: stylesheets } = inlineStylesheets(html, dir)
-      writeFileSync(file, await compactHtml(inlined))
+      const withPreload = injectResultsPreload(inlined, dir)
+      writeFileSync(file, await compactHtml(withPreload))
       for (const stylesheet of stylesheets) {
         try {
           unlinkSync(stylesheet)

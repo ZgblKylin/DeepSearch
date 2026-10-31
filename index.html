@@ -150,6 +150,21 @@
         }
       })()
     </script>
+    <script>
+      // 结果页 chunk 预加载：带 `?q=` 直达时，结果页是首屏必需内容，
+      // 但它是动态 import，要等主 bundle 执行后才发现。这里在 HTML 解析阶段
+      // 就发起 modulepreload，与主 bundle 并行下载，省掉一个完整 RTT。
+      // 占位符由构建替换为带内容哈希的路径；开发模式未替换时直接跳过。
+      ;(function () {
+        var chunk = '__DS_RESULTS_CHUNK__'
+        if (!chunk || chunk.indexOf('__DS_') === 0) return
+        if (!new URLSearchParams(window.location.search).has('q')) return
+        var link = document.createElement('link')
+        link.rel = 'modulepreload'
+        link.href = chunk
+        document.head.appendChild(link)
+      })()
+    </script>
   </head>
   <body>
     <!--
