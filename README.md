@@ -227,10 +227,12 @@ src/
   types.ts                共享类型与默认值
 scripts/verify-singlefile.mjs
 tests/                    unit / integration
-docs/                     计划、进度、总结与 QA 报告
+docs/                     架构说明与 QA 报告
 .github/workflows/pages.yml  GitHub Pages 构建与部署
 .github/workflows/pages-cloudflare.yml  Cloudflare Pages 构建与部署
 ```
+
+参与维护前请先阅读 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)：其中说明模块职责、数据流、关键契约与改动入口。
 
 ## 已知限制
 
