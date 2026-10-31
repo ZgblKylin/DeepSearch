@@ -62,7 +62,7 @@ npm install --cache .npm-cache
 npm run build
 ```
 
-构建完成后，入口文件是 `dist/index.html`，JavaScript、CSS、图标、favicon 全部内联。`dist/` 是被忽略的构建目录，只包含这一个文件；可以直接打开，也可以使用：
+构建完成后，入口文件是 `dist/index.html`，JavaScript、CSS、图标、favicon 全部内联；构建会压缩内联脚本并折叠 HTML 空白。`dist/` 是被忽略的构建目录，只包含这一个文件；可以直接打开，也可以使用：
 
 ```bash
 npm run preview

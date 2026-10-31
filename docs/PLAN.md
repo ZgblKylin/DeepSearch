@@ -285,7 +285,7 @@ testApiKey(key): Promise<{ models: string[]; elapsedMs: number }>
 ```
 
 - 安装：`npm install --cache .npm-cache`。
-- Vite：`base: './'`、`viteSingleFile()`、内联资源、`cssCodeSplit: false`、`sourcemap: false`。
+- Vite：`base: './'`、`viteSingleFile()`、内联资源、`cssCodeSplit: false`、`sourcemap: false`；构建收尾用 `transformWithEsbuild` 压缩手写内联脚本并折叠 HTML 空白，`define` 关闭未使用的 Vue Options API 运行时。
 - 单文件校验：dist 只有 index.html；无外链脚本/样式；含 `api.deepseek.com`；不含 `.env` Key；体积预算小于 2 MB。
 - 构建输出 `dist/`，由 `.gitignore` 忽略；`docs/` 只保存项目文档。
 - GitHub Pages 与 Cloudflare Pages 分别由 `.github/workflows/pages.yml`、`.github/workflows/pages-cloudflare.yml` 在 `main` 推送或手动触发时构建并上传 `dist`；Cloudflare 使用 Direct Upload，需要仓库 Secrets `CLOUDFLARE_API_TOKEN` 与 `CLOUDFLARE_ACCOUNT_ID`，不提交构建产物。
@@ -386,8 +386,8 @@ testApiKey(key): Promise<{ models: string[]; elapsedMs: number }>
 ### 9.6 主题、样式与构建
 
 - 设计令牌在 `styles/tokens.css`（品牌色、明暗主题、间距、字体、圆角、阴影、层级 `--z-*`）；基础重置、通用按钮/输入/chip、`.visually-hidden` 在 `styles/base.css`。
-- `vite.config.ts`：`base: './'`、`viteSingleFile()`、`cssCodeSplit: false`、`sourcemap: false`；`mode === 'development'` 时 `loadEnv` 注入 `__DEV_API_KEY__`，其它模式（含生产构建）注入空字符串。
-- `index.html` 内联主题脚本 + CSP（self、内联样式/脚本、`https://api.deepseek.com`、开发 HMR ws、`worker-src 'self' blob:`）；不加载外链字体/图片。
+- `vite.config.ts`：`base: './'`、`viteSingleFile()`、`cssCodeSplit: false`、`sourcemap: false`；`mode === 'development'` 时 `loadEnv` 注入 `__DEV_API_KEY__`，其它模式（含生产构建）注入空字符串。`closeBundle` 阶段压缩 `dist/index.html`：用 `transformWithEsbuild` 压缩非 module 的内联脚本，移除 HTML 注释并折叠标签间空白；`define` 设置 `__VUE_OPTIONS_API__: false` 与 `__VUE_PROD_DEVTOOLS__: false`（全部组件使用 `<script setup>`）。
+- `index.html` 内联主题脚本与搜索预取脚本 + CSP（self、内联样式/脚本、`https://api.deepseek.com`、开发 HMR ws、`worker-src 'self' blob:`）；不加载外链字体/图片。两者必须保持同步执行（非 `type="module"`），预取脚本要在 HTML 解析阶段就发出请求。
 - 开发 Key：`App.vue` 挂载后调用 `seedDevKey()`，仅当 settings.apiKey 为空时写入 .env Key 并 toast 提示；生产构建中该常量为空，不会写入。
 
 ### 9.7 测试
