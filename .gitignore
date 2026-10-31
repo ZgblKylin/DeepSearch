@@ -15,6 +15,10 @@ qa/
 # 构建分析报告
 .report/
 
+# 浏览器自动化产物与临时脚本
+.playwright-mcp/
+scripts/.tmp-*
+
 # 编辑器与系统文件
 .DS_Store
 Thumbs.db
