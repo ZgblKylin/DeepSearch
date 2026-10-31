@@ -16,6 +16,17 @@ const { query, goHome } = useQueryRoute()
 const { theme, setTheme } = useTheme()
 const { openSettings } = useUi()
 
+/**
+ * 首页链接地址：当前 pathname（不含查询串）。
+ *
+ * SPA 用 `?q=` 路由，入口文件路径全程不变，因此首页就是当前 pathname。
+ * 不能写 `./`：部署在无尾斜杠的子路径（如 `/search`）时，`./` 会解析到上一层目录，
+ * 新标签打开链接或脚本未执行时会离开应用。
+ */
+const homeHref = computed(() =>
+  typeof window === 'undefined' ? './' : window.location.pathname,
+)
+
 /** 结果页在顶栏中央显示紧凑搜索框；首页只保留 hero 搜索框 */
 const showSearch = computed(() => query.value.trim().length > 0)
 
@@ -47,7 +58,7 @@ function chooseTheme(value: ThemeMode): void {
 <template>
   <header class="topbar" :class="{ 'topbar--with-search': showSearch }">
     <div class="topbar__inner container">
-      <a class="topbar__brand" href="./" aria-label="DeepSearch 首页" @click.prevent="goHome">
+      <a class="topbar__brand" :href="homeHref" aria-label="DeepSearch 首页" @click.prevent="goHome">
         <WhaleLogo :size="26" title="DeepSearch" />
         <span class="topbar__name">DeepSearch</span>
       </a>
