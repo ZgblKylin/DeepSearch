@@ -41,7 +41,7 @@
 - 不引入 Vue Router；使用 `history.pushState`、`popstate`、`URLSearchParams`。
 - 空 `q` 显示首页；非空 `q` 显示结果页并自动搜索。
 - 新搜索与筛选使用 `pushState`；主题、AI 模式等偏好不写 URL。
-- 前进/后退恢复对应 `q`；同一 `q` 不重复请求。
+- 前进/后退恢复对应 `q`；再次提交同一 `q` 不改变地址栏，但会重新发起搜索（强制刷新）。
 - 首页进入结果页时，搜索框用 View Transitions API 从 hero 移动到顶栏居中；不支持或 reduced-motion 时降级为淡入/位移动画。
 
 ### 3.2 顶栏与首页
@@ -401,7 +401,7 @@ testApiKey(key): Promise<{ models: string[]; elapsedMs: number }>
 
 ## 10. 集成备注（T5）
 
-- 搜索编排集中在 `App.vue`：`watch(useQueryRoute().query, immediate)` → 非空时 `ai.reset()` + `search.run(q)`，空 q 时 `search.cancel()` + `search.run('')` + `ai.reset()`；同 q 去重、Key 弹窗与长度校验仍由 `useSearch.run` 内部负责。
+- 搜索编排集中在 `App.vue`：`watch(useQueryRoute().query, immediate)` → 非空时 `ai.reset()` + `search.run(q)`，空 q 时 `search.cancel()` + `search.run('')` + `ai.reset()`。`SearchBar` 提交同一 `q` 时直接调用 `ai.reset()` 与 `search.run(q)` 实现强制刷新：地址栏不变，路由 watcher 不触发。加载中重复触发由 `useSearch.run` 复用进行中的请求；Key 弹窗与长度校验同样由 `useSearch.run` 内部负责。
 - AI 编排集中在 `App.vue`：`watch([search.loading, search.results, settings.aiMode])`，仅在“非加载中 + 已搜索 + 有结果 + AI 开启 + 当前结果对应地址栏 q”时调用 `ai.summarize()`；AI 从开启切到关闭时调用 `ai.abort()`；`summarize` 内部按 query + results 指纹复用摘要。
 - 结果页紧凑搜索框移入 `TopBar` 中央（桌面三列、移动端第二行），`ResultsView` 不再渲染搜索框，保证每页只有一个 `view-transition-name: site-search`；首页 hero 搜索框保留并由 `SearchBar` 自己发起 View Transition。`useViewTransition` 在过渡回调内 `await nextTick()`，确保浏览器抓取到 Vue 更新后的新快照。
 - 顶栏保持 `position: sticky; top: 0`（滚动时固定在视口顶部且保留文档流占位，内容无需额外 padding）；页脚仍在正常文档流。

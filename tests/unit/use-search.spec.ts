@@ -15,10 +15,10 @@ import { useUi } from '@/stores/ui'
 import type { SearchResult } from '@/types'
 
 /**
- * 搜索状态与结果页/搜索框回归（QA P2-1 / P3-5）：
+ * 搜索状态与结果页/搜索框回归：
  * - 无 Key 时进入 awaitingKey，关闭 Key 弹窗后显示“需要配置 API Key”而非永久骨架；
  * - 保存 Key 后自动继续被拦截的搜索；
- * - 同一 q 在错误 / 未配置 Key 状态下再次提交会重试（重新请求或重新弹 Key 弹窗）；
+ * - 同一 q 再次提交视为强制刷新，重新请求并替换结果，缺少 Key 时重新弹出 Key 弹窗；
  * - 预取命中时复用响应，参数不一致时回退到正式请求。
  *
  * 网络层 `@/lib/api` 的 `searchWeb` 被 mock，`normalizeSearchPayload` 保留真实实现。
@@ -152,7 +152,7 @@ describe('P2-1：无 API Key 时的可操作状态', () => {
   })
 })
 
-describe('P3-5：同一 q 再次提交的重试行为', () => {
+describe('同一 q 再次提交视为强制刷新', () => {
   it('Key 未配置时同 q 提交会重新打开 Key 弹窗', async () => {
     void searchStore.run('DeepSeek')
     expect(uiStore.apiKeyModal.open).toBe(true)
@@ -188,19 +188,48 @@ describe('P3-5：同一 q 再次提交的重试行为', () => {
     expect(searchStore.results.value).toHaveLength(1)
   })
 
-  it('同 q 已成功时再次提交不会重复请求', async () => {
+  it('同 q 已成功时再次提交会重新请求并替换结果', async () => {
     settingsStore.update({ apiKey: 'sk-test-key' })
     mockedSearchWeb.mockResolvedValueOnce([makeResult()])
     await searchStore.run('DeepSeek')
     expect(mockedSearchWeb).toHaveBeenCalledTimes(1)
 
     route.navigate('DeepSeek')
+    mockedSearchWeb.mockResolvedValueOnce([makeResult({ title: '刷新后的结果' })])
     const view = mountComponent(SearchBar, { compact: true })
     await view.find('form').trigger('submit')
     await flushPromises()
 
-    expect(mockedSearchWeb).toHaveBeenCalledTimes(1)
+    expect(mockedSearchWeb).toHaveBeenCalledTimes(2)
+    expect(searchStore.results.value[0]?.title).toBe('刷新后的结果')
     expect(searchStore.error.value).toBeNull()
+  })
+
+  it('强制刷新会先清空旧结果再等待新响应', async () => {
+    settingsStore.update({ apiKey: 'sk-test-key' })
+    mockedSearchWeb.mockResolvedValueOnce([makeResult()])
+    await searchStore.run('DeepSeek')
+    expect(searchStore.results.value).toHaveLength(1)
+
+    route.navigate('DeepSeek')
+    let release: (results: SearchResult[]) => void = () => undefined
+    mockedSearchWeb.mockImplementationOnce(
+      () =>
+        new Promise<SearchResult[]>((resolve) => {
+          release = resolve
+        }),
+    )
+    const view = mountComponent(SearchBar, { compact: true })
+    await view.find('form').trigger('submit')
+
+    expect(searchStore.loading.value).toBe(true)
+    expect(searchStore.results.value).toHaveLength(0)
+
+    release([makeResult({ title: '刷新后的结果' })])
+    await flushPromises()
+
+    expect(searchStore.loading.value).toBe(false)
+    expect(searchStore.results.value[0]?.title).toBe('刷新后的结果')
   })
 })
 

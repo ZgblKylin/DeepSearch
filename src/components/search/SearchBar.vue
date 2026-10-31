@@ -6,11 +6,16 @@ import EngineButton from '@/components/search/EngineButton.vue'
 import HelpPopover from '@/components/search/HelpPopover.vue'
 import Icon from '@/components/ui/Icon.vue'
 import { useQueryRoute } from '@/composables/useQueryRoute'
+import { useAi } from '@/composables/useAi'
 import { useSearch } from '@/composables/useSearch'
 import { useViewTransition } from '@/composables/useViewTransition'
 import { MAX_QUERY_LENGTH, countQueryChars, validateQuery } from '@/lib/query'
 import { addSearchHistory, readSearchHistory } from '@/lib/searchHistory'
-import { resolveSearchRequestParams, startSearchPrefetch } from '@/lib/searchPrefetch'
+import {
+  clearSearchPrefetch,
+  resolveSearchRequestParams,
+  startSearchPrefetch,
+} from '@/lib/searchPrefetch'
 import { useSettings } from '@/stores/settings'
 
 /**
@@ -21,7 +26,8 @@ import { useSettings } from '@/stores/settings'
  * 区分尺寸；根节点 `view-transition-name: site-search` 供首页 → 结果页的
  * View Transition 位移。
  *
- * 本组件只负责把合法的 q 写入路由；实际请求由 useSearch（集成层调用 run）发起。
+ * 本组件负责把合法的 q 写入路由；同一 q 再次提交时直接重新发起搜索，
+ * 其余情况下实际请求由 useSearch（集成层调用 run）发起。
  */
 const props = withDefaults(
   defineProps<{
@@ -36,7 +42,8 @@ const props = withDefaults(
 const { query, navigate } = useQueryRoute()
 const { run: runViewTransition } = useViewTransition()
 const { settings } = useSettings()
-const { error: searchError, awaitingKey, retry } = useSearch()
+const { run: runSearch } = useSearch()
+const { reset: resetAi } = useAi()
 
 const inputRef = ref<HTMLInputElement | null>(null)
 const value = ref(query.value)
@@ -82,12 +89,11 @@ function submit(): void {
   // 只有通过校验并实际提交的查询才写入历史，避免半截输入污染 datalist
   history.value = addSearchHistory(next)
   if (next === query.value) {
-    // 同一 q 再次提交：页内错误或等待 API Key 时视为重试（QA P3-5），
-    // 失败后可重新发起请求 / 重新打开 Key 弹窗；其余情况保持静默失焦。
-    if (searchError.value || awaitingKey.value) {
-      void retry()
-      return
-    }
+    // 同一 q 再次提交：查询串未变不会触发路由 watcher，这里直接重新发起搜索，
+    // 使重复提交等同于强制刷新（会产生一次新的搜索与摘要计费）。
+    clearSearchPrefetch()
+    resetAi()
+    void runSearch(next)
     inputRef.value?.blur()
     return
   }
