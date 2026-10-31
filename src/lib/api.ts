@@ -42,19 +42,65 @@ function readNumber(value: unknown, fallback = 0): number {
   return typeof value === 'number' && Number.isFinite(value) ? value : fallback
 }
 
+/** 请求载荷：`accept` 用于流式响应（`text/event-stream`） */
+interface RequestPayload {
+  method: 'GET' | 'POST'
+  body?: unknown
+  accept?: string
+}
+
+/** 请求句柄：响应本体、超时状态与清理函数 */
+interface RequestHandles {
+  response: Response
+  /** 是否因超时被中止；body 读取阶段同样反映该状态 */
+  readonly timedOut: boolean
+  /** 清理超时定时器与调用方取消监听 */
+  dispose: () => void
+}
+
 /**
- * 通用 JSON 请求：
- * - 自动带 Bearer 与 JSON Content-Type；
- * - AbortController 同时响应调用方取消与超时；
- * - 非 2xx 归一化为 ApiError，纯文本响应也可解析；
- * - 调用方主动取消时抛出原生 AbortError，由 UI 层静默忽略。
+ * 把请求与响应读取阶段的异常归一化为 `ApiError`。
+ *
+ * 超时与调用方取消都会以 AbortError 呈现，只有 `timedOut` 能区分二者：
+ * 调用方取消必须保留原生 AbortError，由 UI 层静默忽略。
  */
-async function requestJson(
+function normalizeRequestError(
+  error: unknown,
+  timedOut: boolean,
+  context: ApiErrorContext,
+): never {
+  if (error instanceof ApiError) throw error
+  if (isAbortError(error)) {
+    if (timedOut) {
+      throw new ApiError({
+        status: null,
+        code: 'timeout',
+        message: '请求超时，请稍后重试',
+        context,
+      })
+    }
+    throw error
+  }
+  throw new ApiError({
+    status: null,
+    code: 'network_error',
+    message: '网络连接失败，请检查网络后重试',
+    context,
+  })
+}
+
+/**
+ * 发起请求并返回响应句柄。
+ *
+ * 只覆盖连接与响应头阶段；body 读取由调用方负责，读取期间的异常需经
+ * `normalizeRequestError` 归一化后才能交给 UI。
+ */
+async function performRequest(
   path: string,
   apiKey: string,
-  init: { method: 'GET' | 'POST'; body?: unknown },
+  payload: RequestPayload,
   options: RequestOptions,
-): Promise<unknown> {
+): Promise<RequestHandles> {
   const key = apiKey.trim()
   if (!key) {
     throw new ApiError({
@@ -80,17 +126,23 @@ async function requestJson(
     controller.abort()
   }, options.timeoutMs)
 
+  const dispose = (): void => {
+    if (timer !== undefined) clearTimeout(timer)
+    timer = undefined
+    options.signal?.removeEventListener('abort', handleCallerAbort)
+  }
+
   try {
     const headers: Record<string, string> = {
       Authorization: `Bearer ${key}`,
-      Accept: 'application/json',
+      Accept: payload.accept ?? 'application/json',
     }
-    if (init.body !== undefined) headers['Content-Type'] = 'application/json'
+    if (payload.body !== undefined) headers['Content-Type'] = 'application/json'
 
     const response = await fetch(`${API_BASE_URL}${path}`, {
-      method: init.method,
+      method: payload.method,
       headers,
-      body: init.body === undefined ? undefined : JSON.stringify(init.body),
+      body: payload.body === undefined ? undefined : JSON.stringify(payload.body),
       signal: controller.signal,
     })
 
@@ -98,41 +150,50 @@ async function requestJson(
       throw await parseErrorResponse(response, options.context)
     }
 
-    const text = await response.text()
+    return {
+      response,
+      get timedOut() {
+        return timedOut
+      },
+      dispose,
+    }
+  } catch (error) {
+    dispose()
+    normalizeRequestError(error, timedOut, options.context)
+  }
+}
+
+/**
+ * 通用 JSON 请求：
+ * - 自动带 Bearer 与 JSON Content-Type；
+ * - AbortController 同时响应调用方取消与超时；
+ * - 非 2xx 归一化为 ApiError，纯文本响应也可解析；
+ * - 调用方主动取消时抛出原生 AbortError，由 UI 层静默忽略。
+ */
+async function requestJson(
+  path: string,
+  apiKey: string,
+  init: RequestPayload,
+  options: RequestOptions,
+): Promise<unknown> {
+  const handles = await performRequest(path, apiKey, init, options)
+  try {
+    const text = await handles.response.text()
     if (!text.trim()) return null
     try {
       return JSON.parse(text) as unknown
     } catch {
       throw new ApiError({
-        status: response.status,
+        status: handles.response.status,
         code: 'invalid_response',
         message: '响应不是合法的 JSON',
         context: options.context,
       })
     }
   } catch (error) {
-    if (error instanceof ApiError) throw error
-    if (isAbortError(error)) {
-      if (timedOut) {
-        throw new ApiError({
-          status: null,
-          code: 'timeout',
-          message: '请求超时，请稍后重试',
-          context: options.context,
-        })
-      }
-      // 调用方主动取消：保留原生 AbortError，不弹错误弹窗
-      throw error
-    }
-    throw new ApiError({
-      status: null,
-      code: 'network_error',
-      message: '网络连接失败，请检查网络后重试',
-      context: options.context,
-    })
+    normalizeRequestError(error, handles.timedOut, options.context)
   } finally {
-    if (timer !== undefined) clearTimeout(timer)
-    options.signal?.removeEventListener('abort', handleCallerAbort)
+    handles.dispose()
   }
 }
 
@@ -227,6 +288,14 @@ function normalizeChatUsage(value: unknown): ChatUsage {
   }
 }
 
+/** 流式增量：正文与思考内容分别给出，思考内容不进入正文 */
+export interface ChatStreamDelta {
+  /** 正文增量 */
+  content: string
+  /** 思考内容增量 */
+  reasoningContent: string
+}
+
 export interface ChatCompletionParams {
   model: AiModel
   messages: ChatMessage[]
@@ -234,17 +303,12 @@ export interface ChatCompletionParams {
   effort: ReasoningEffort
   maxTokens?: number
   signal?: AbortSignal
+  /** 提供时改用流式请求，按到达顺序回调增量；省略时保持一次性响应 */
+  onDelta?: (delta: ChatStreamDelta) => void
 }
 
-/**
- * POST /chat/completions（非流式）
- *
- * 不发送 temperature；挡位关闭时 `thinking: { type: 'disabled' }` 且省略 reasoning_effort。
- */
-export async function chatCompletion(
-  apiKey: string,
-  params: ChatCompletionParams,
-): Promise<ChatResult> {
+/** 组装 Chat 请求体；不发送 temperature */
+function buildChatBody(params: ChatCompletionParams): JsonObject {
   const body: JsonObject = {
     model: params.model,
     messages: params.messages.map((message) => ({
@@ -259,14 +323,11 @@ export async function chatCompletion(
     body.thinking = { type: 'enabled' }
     body.reasoning_effort = params.effort
   }
+  return body
+}
 
-  const payload = await requestJson(
-    '/chat/completions',
-    apiKey,
-    { method: 'POST', body },
-    { timeoutMs: API_TIMEOUTS.chat, signal: params.signal, context: 'chat' },
-  )
-
+/** 归一化一次性响应体 */
+function normalizeChatPayload(payload: unknown, fallbackModel: AiModel): ChatResult {
   const choices = isObject(payload) ? payload.choices : undefined
   const firstChoice = Array.isArray(choices) ? choices[0] : undefined
   const message = isObject(firstChoice) ? firstChoice.message : undefined
@@ -283,9 +344,151 @@ export async function chatCompletion(
     content: readString(message.content),
     reasoningContent: readString(message.reasoning_content),
     usage: normalizeChatUsage(payload.usage),
-    model: readString(payload.model, params.model),
+    model: readString(payload.model, fallbackModel),
     finishReason: readString(firstChoice.finish_reason),
   }
+}
+
+/**
+ * 解析一行 SSE。
+ *
+ * 只处理 `data:` 行：注释、事件名、空行与无法解析的负载一律忽略，
+ * 使单个畸形分片不会中断整个流。
+ */
+function parseChatStreamEvent(line: string): { done: boolean; payload: unknown } | null {
+  const trimmed = line.trim()
+  if (!trimmed.startsWith('data:')) return null
+  const data = trimmed.slice(5).trim()
+  if (!data) return null
+  if (data === '[DONE]') return { done: true, payload: null }
+  try {
+    return { done: false, payload: JSON.parse(data) as unknown }
+  } catch {
+    return null
+  }
+}
+
+/**
+ * 流式 Chat 请求：边读边通过 `onDelta` 回调增量。
+ *
+ * 请求体追加 `stream: true` 与 `stream_options.include_usage`，usage 由最后一个
+ * 携带 usage 的 chunk 给出。正文与思考内容分开累积，思考内容不进入正文。
+ */
+async function streamChatCompletion(
+  apiKey: string,
+  body: JsonObject,
+  params: ChatCompletionParams,
+): Promise<ChatResult> {
+  const handles = await performRequest(
+    '/chat/completions',
+    apiKey,
+    {
+      method: 'POST',
+      body: { ...body, stream: true, stream_options: { include_usage: true } },
+      accept: 'text/event-stream',
+    },
+    { timeoutMs: API_TIMEOUTS.chat, signal: params.signal, context: 'chat' },
+  )
+
+  let content = ''
+  let reasoningContent = ''
+  let usage: ChatUsage | null = null
+  let finishReason = ''
+  let model: string = params.model
+  let completed = false
+
+  try {
+    const reader = handles.response.body?.getReader()
+    if (!reader) {
+      throw new ApiError({
+        status: null,
+        code: 'invalid_response',
+        message: '流式响应缺少可读数据流',
+        context: 'chat',
+      })
+    }
+
+    const decoder = new TextDecoder()
+    let buffer = ''
+
+    while (!completed) {
+      const chunk = await reader.read()
+      if (chunk.done) break
+      buffer += decoder.decode(chunk.value, { stream: true })
+
+      let newline = buffer.indexOf('\n')
+      while (newline !== -1) {
+        const line = buffer.slice(0, newline).replace(/\r$/, '')
+        buffer = buffer.slice(newline + 1)
+        newline = buffer.indexOf('\n')
+
+        const event = parseChatStreamEvent(line)
+        if (!event) continue
+        if (event.done) {
+          completed = true
+          break
+        }
+        if (!isObject(event.payload)) continue
+        const payload = event.payload
+
+        if (typeof payload.model === 'string' && payload.model) model = payload.model
+        if (isObject(payload.usage)) usage = normalizeChatUsage(payload.usage)
+
+        const choices = Array.isArray(payload.choices) ? payload.choices : []
+        const choice = isObject(choices[0]) ? choices[0] : null
+        if (!choice) continue
+
+        const finish = readString(choice.finish_reason)
+        if (finish) finishReason = finish
+
+        const delta = isObject(choice.delta) ? choice.delta : null
+        if (!delta) continue
+        const text = readString(delta.content)
+        const reasoning = readString(delta.reasoning_content)
+        if (text) content += text
+        if (reasoning) reasoningContent += reasoning
+        if (text || reasoning) params.onDelta?.({ content: text, reasoningContent: reasoning })
+      }
+    }
+
+    await reader.cancel().catch(() => undefined)
+  } catch (error) {
+    normalizeRequestError(error, handles.timedOut, 'chat')
+  } finally {
+    handles.dispose()
+  }
+
+  return {
+    content,
+    reasoningContent,
+    usage: usage ?? normalizeChatUsage(null),
+    model,
+    finishReason,
+  }
+}
+
+/**
+ * POST /chat/completions。
+ *
+ * 不发送 temperature；挡位关闭时 `thinking: { type: 'disabled' }` 且省略
+ * `reasoning_effort`。提供 `onDelta` 时改用流式响应，首字延迟从「完整生成」
+ * 降到首个 chunk 到达；省略 `onDelta` 时保持一次性响应。
+ */
+export async function chatCompletion(
+  apiKey: string,
+  params: ChatCompletionParams,
+): Promise<ChatResult> {
+  const body = buildChatBody(params)
+  if (params.onDelta) return streamChatCompletion(apiKey, body, params)
+
+  const payload = await requestJson(
+    '/chat/completions',
+    apiKey,
+    { method: 'POST', body },
+    { timeoutMs: API_TIMEOUTS.chat, signal: params.signal, context: 'chat' },
+  )
+
+  return normalizeChatPayload(payload, params.model)
 }
 
 export interface FetchPageResult {

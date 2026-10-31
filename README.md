@@ -143,7 +143,7 @@ https://your-site.example/?q=DeepSeek+site%3Agithub.com
 AI 模式默认开启，状态保存在 localStorage。搜索成功且结果非空后，侧边栏自动生成摘要：
 
 - 使用按 `rerank_score` 排序的前 8 条结果的标题、URL、站点、日期、摘要构造上下文，单条与总量都有截断。
-- 使用配置的模型与思考挡位，默认 `deepseek-flash` 与 `high`；非流式请求，`max_tokens` 为 4096。
+- 使用配置的模型与思考挡位，默认 `deepseek-flash` 与 `high`；流式请求，`max_tokens` 为 4096，正文逐字呈现。
 - 摘要中的 `[n]` 会映射到来源 URL，Markdown 经 DOMPurify 清洗，禁止图片、iframe、表单等标签。
 - 摘要作为 AI 对话线程的第一条助手消息，其下方标签行显示“优质 N”（`rerank_score >= 1.5`）与“权威 N”（`authority >= 3`）；不再提供单独的“AI 追问”按钮。
 - 桌面侧边栏宽度 440px，高度填满顶栏以下的可用视口；消息线程滚动，输入框固定在底部。“AI 生成，仅供参考”显示在标题栏右侧。
@@ -213,7 +213,7 @@ API Key 以明文保存在 localStorage，任何能执行本页脚本的代码�
 | `npm run verify:singlefile` | 校验 `dist/index.html` 与 Key 泄漏 |
 | `npm run check` | 依次执行 typecheck、测试、构建、单文件校验 |
 
-`npm run check` 是最终验收命令。测试覆盖查询语法、排序、费用、统计、错误归一化、Markdown 清洗、设置与弹窗、筛选与帮助等；`docs/qa/REPORT.md` 记录真实 API E2E 与代码审查结论。
+`npm run check` 是最终验收命令。测试覆盖查询语法、排序、费用、统计、错误归一化、Markdown 清洗、搜索预取、流式响应解析、设置与弹窗、筛选与帮助等；`docs/qa/REPORT.md` 记录真实 API E2E 与代码审查结论。
 
 ## 目录
 
@@ -234,7 +234,7 @@ docs/                     计划、进度、总结与 QA 报告
 
 ## 已知限制
 
-- Chat 使用非流式请求，摘要与回答生成期间以三点加载动画呈现。
+- Chat 使用流式请求，首个 token 到达前以三点加载动画提示，之后正文逐字呈现。
 - 首屏预取在参数不一致或页面提前离开时可能多产生一次 Search 费用（每次 0.005 元）。
 - Search API 不提供分页；结果数量由“每次返回条数”控制，范围为 1–50。
 - AI 摘要、单结果追问与多轮对话会产生 Token 费用；长对话或高思考挡位会增加消耗。

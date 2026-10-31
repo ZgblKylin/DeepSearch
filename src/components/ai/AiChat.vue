@@ -57,17 +57,59 @@ const canAsk = computed(
     !props.asking,
 )
 
+/**
+ * 正在流式生成的消息下标；-1 表示当前没有流式消息。
+ *
+ * 摘要与单结果会话由 `phase` 表达生成中，追问期间 `phase` 保持 `ready`，
+ * 只由 `asking` 标记，因此两者都要参与判断。
+ */
+const streamingIndex = computed(() => {
+  const generating =
+    props.phase === 'summarizing' || props.phase === 'followup-loading' || props.asking
+  if (!generating) return -1
+  const index = props.messages.length - 1
+  const last = props.messages[index]
+  return last && last.role === 'assistant' ? index : -1
+})
+
+/** 首字到达前显示等待指示；已有正文时由正文末尾的光标表达生成中 */
+const showPending = computed(() => props.asking && streamingIndex.value === -1)
+
+/** 流式期间暂停屏幕阅读器自动朗读，避免逐个增量反复播报 */
+const liveMode = computed(() => (streamingIndex.value === -1 ? 'polite' : 'off'))
+
 function scrollToBottom(): void {
   const element = threadEl.value
   if (!element) return
   element.scrollTop = element.scrollHeight
 }
 
+/**
+ * 是否已接近底部。
+ *
+ * 流式增量会持续触发布局变化：只有用户本来就在底部时才自动跟随，
+ * 否则上滚查阅历史会被不断拉回。
+ */
+function isNearBottom(): boolean {
+  const element = threadEl.value
+  if (!element) return true
+  return element.scrollHeight - element.scrollTop - element.clientHeight <= 48
+}
+
 watch(
-  () => [props.messages.length, props.asking, props.phase] as const,
+  () => {
+    const last = props.messages[props.messages.length - 1]
+    return [
+      props.messages.length,
+      props.asking,
+      props.phase,
+      last?.content.length ?? 0,
+    ] as const
+  },
   async () => {
+    const shouldStick = isNearBottom()
     await nextTick()
-    scrollToBottom()
+    if (shouldStick) scrollToBottom()
   },
 )
 
@@ -103,7 +145,7 @@ function onCompositionEnd(): void {
       <span>{{ notice }}</span>
     </p>
 
-    <div ref="threadEl" class="ai-chat__thread" aria-live="polite">
+    <div ref="threadEl" class="ai-chat__thread" :aria-live="liveMode">
       <template v-for="(message, index) in messages" :key="`${index}-${message.role}`">
         <div
           v-if="index === 0 && showSummaryTags && message.role === 'assistant'"
@@ -115,12 +157,18 @@ function onCompositionEnd(): void {
             :sources="sources"
             :excellent-count="excellentCount"
             :authority-count="authorityCount"
+            :streaming="streamingIndex === index"
           />
         </div>
-        <ChatMessageView v-else :message="message" :sources="sources" />
+        <ChatMessageView
+          v-else
+          :message="message"
+          :sources="sources"
+          :streaming="streamingIndex === index"
+        />
       </template>
 
-      <div v-if="asking" class="ai-chat__pending" role="status" aria-label="AI 正在回答">
+      <div v-if="showPending" class="ai-chat__pending" role="status" aria-label="AI 正在回答">
         <span class="ai-chat__pending-avatar" aria-hidden="true">AI</span>
         <LoadingDots size="sm" label="AI 正在回答" />
       </div>

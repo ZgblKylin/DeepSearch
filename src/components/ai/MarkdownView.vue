@@ -15,15 +15,21 @@ const props = withDefaults(
     content: string
     /** 会话来源，用于把正文里的 [n] 转成来源链接 */
     sources?: readonly AiSource[]
+    /** 是否正在流式生成：在正文末尾显示光标 */
+    streaming?: boolean
   }>(),
-  { sources: () => [] },
+  { sources: () => [], streaming: false },
 )
 
 const html = computed(() => renderMarkdown(props.content, props.sources))
 </script>
 
 <template>
-  <div class="markdown-view" v-html="html"></div>
+  <div
+    class="markdown-view"
+    :class="{ 'markdown-view--streaming': props.streaming }"
+    v-html="html"
+  ></div>
 </template>
 
 <style scoped>
@@ -165,5 +171,20 @@ const html = computed(() => renderMarkdown(props.content, props.sources))
 
 .markdown-view :deep(sup.md-cite a:hover) {
   text-decoration: underline;
+}
+
+/* 流式生成中：正文末尾追加闪烁光标；尚无内容时只显示光标 */
+.markdown-view--streaming > :last-child::after,
+.markdown-view--streaming:empty::before {
+  content: '▍';
+  margin-left: 1px;
+  color: var(--brand);
+  animation: markdown-cursor-blink 1s steps(2, start) infinite;
+}
+
+@keyframes markdown-cursor-blink {
+  to {
+    visibility: hidden;
+  }
 }
 </style>

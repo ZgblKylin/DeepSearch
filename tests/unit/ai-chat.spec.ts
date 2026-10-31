@@ -58,12 +58,72 @@ describe('AiChat 对话线程', () => {
     const wrapper = mount(AiChat, {
       props: {
         phase: 'ready',
-        messages: [summaryMessage],
+        messages: [summaryMessage, { role: 'user', content: '追问' }],
         asking: true,
       },
     })
 
     expect(wrapper.find('textarea').attributes('disabled')).toBeDefined()
+    expect(wrapper.find('[aria-label="AI 正在回答"]').exists()).toBe(true)
+  })
+
+  it('流式首字到达前显示等待状态', () => {
+    const wrapper = mount(AiChat, {
+      props: {
+        phase: 'followup-loading',
+        messages: [{ role: 'user', content: '问题' }],
+        asking: true,
+      },
+    })
+
+    expect(wrapper.find('.markdown-view--streaming').exists()).toBe(false)
+    expect(wrapper.find('[aria-label="AI 正在回答"]').exists()).toBe(true)
+  })
+
+  it('流式正文到达后显示光标并隐藏等待状态', () => {
+    const wrapper = mount(AiChat, {
+      props: {
+        phase: 'followup-loading',
+        messages: [
+          { role: 'user', content: '问题' },
+          { role: 'assistant', content: '已经到达的部分回答' },
+        ],
+        asking: true,
+      },
+    })
+
+    expect(wrapper.find('.markdown-view--streaming').exists()).toBe(true)
+    expect(wrapper.find('[aria-label="AI 正在回答"]').exists()).toBe(false)
+    expect(wrapper.text()).toContain('已经到达的部分回答')
+  })
+
+  it('追问期间 phase 保持 ready 时仍显示流式光标', () => {
+    const wrapper = mount(AiChat, {
+      props: {
+        phase: 'ready',
+        messages: [
+          summaryMessage,
+          { role: 'user', content: '追问' },
+          { role: 'assistant', content: '正在到达的回答' },
+        ],
+        asking: true,
+      },
+    })
+
+    expect(wrapper.find('.markdown-view--streaming').exists()).toBe(true)
+    expect(wrapper.find('[aria-label="AI 正在回答"]').exists()).toBe(false)
+  })
+
+  it('追问首字到达前只显示等待状态', () => {
+    const wrapper = mount(AiChat, {
+      props: {
+        phase: 'ready',
+        messages: [summaryMessage, { role: 'user', content: '追问' }],
+        asking: true,
+      },
+    })
+
+    expect(wrapper.find('.markdown-view--streaming').exists()).toBe(false)
     expect(wrapper.find('[aria-label="AI 正在回答"]').exists()).toBe(true)
   })
 })

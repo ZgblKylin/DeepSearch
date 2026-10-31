@@ -74,7 +74,7 @@ const loadingLabel = computed(() => {
 
       <div v-show="!collapsed" class="ai-sidebar__body">
         <div
-          v-if="phase === 'summarizing' || phase === 'followup-loading'"
+          v-if="(phase === 'summarizing' || phase === 'followup-loading') && messages.length === 0"
           class="ai-sidebar__loading"
           role="status"
           aria-live="polite"

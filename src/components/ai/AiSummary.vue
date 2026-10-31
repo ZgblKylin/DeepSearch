@@ -16,14 +16,16 @@ withDefaults(
     sources?: readonly AiSource[]
     excellentCount: number
     authorityCount: number
+    /** 是否正在流式生成 */
+    streaming?: boolean
   }>(),
-  { sources: () => [] },
+  { sources: () => [], streaming: false },
 )
 </script>
 
 <template>
   <section class="ai-summary" aria-label="AI 摘要">
-    <MarkdownView :content="content" :sources="sources" />
+    <MarkdownView :content="content" :sources="sources" :streaming="streaming" />
     <AiTags :excellent-count="excellentCount" :authority-count="authorityCount" />
   </section>
 </template>

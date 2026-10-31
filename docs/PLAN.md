@@ -93,7 +93,7 @@
 - 默认开启，持久化。
 - 搜索成功后，若开启且结果非空，自动生成侧边栏摘要。
 - 摘要上下文取按 `rerank_score` 排序的前 8 条，单条截断 1200 字符，总量上限 16000 字符；不请求 `need_content`。
-- 使用配置模型与思考挡位；默认 `deepseek-flash`、`high`；非流式，`max_tokens: 4096`，超时 120 秒。
+- 使用配置模型与思考挡位；默认 `deepseek-flash`、`high`；流式（`stream_options.include_usage`），`max_tokens: 4096`，超时 120 秒。
 - 系统提示：只依据结果、不编造、使用查询主要语言、先结论后要点、用 `[n]` 引用、不要输出思考过程、约 600 字。
 - Markdown 经 DOMPurify 清洗；禁止 `img`、`iframe`、`object`、`style`、表单；链接加 `noopener noreferrer`；`[n]` 转为来源 URL 上标链接。
 - 侧边栏标题为“AI 对话”；桌面宽度 440px，高度填满顶栏以下的可用视口，“AI 生成，仅供参考”位于标题栏右侧。
@@ -178,7 +178,7 @@ Authorization: Bearer <key>
 - 所有请求加 Bearer 与 JSON Content-Type。
 - 超时：Search 20s、Chat 120s、Fetch 30s、测试 15s；AbortController 支持取消与超时。
 - 每次新搜索/追问取消上一组请求；请求序号丢弃过期响应。
-- 非流式 Chat。
+- 流式 Chat：正文增量按 60 毫秒节流渲染，思考内容不进入正文。
 
 错误归一化：`{ error: { message, type, code } }`；code 缺失用 type，再缺失 `http_<status>`；纯文本响应作为 message；网络 `network_error`；超时 `timeout`；解析失败 `invalid_response`。
 
@@ -264,7 +264,7 @@ API 客户端（`src/lib/api.ts`）：
 ```ts
 class ApiError extends Error { status; code; type; requestId?; context? }
 searchWeb(key, { query, count, oriQuestion?, signal }): Promise<SearchResult[]>
-chatCompletion(key, { model, messages, effort, maxTokens, signal }): Promise<ChatResult>
+chatCompletion(key, { model, messages, effort, maxTokens, signal, onDelta? }): Promise<ChatResult>
 fetchPage(key, url, signal): Promise<{ title: string; content: string }>
 testApiKey(key): Promise<{ models: string[]; elapsedMs: number }>
 ```
@@ -338,7 +338,7 @@ testApiKey(key): Promise<{ models: string[]; elapsedMs: number }>
 - 导出 `API_BASE_URL`、`API_TIMEOUTS`（search 20s / chat 120s / fetch 30s / test 15s）、`ApiError`（re-export `src/lib/errors.ts`）、`isApiError`。
 - `searchWeb(key, { query, count, oriQuestion?, signal? })`：请求体仅 `query`/`count`/`need_content:false`（`oriQuestion` 非空时加 `ori_question`），永远不发送 `localization`；返回 `normalizeSearchPayload(payload)` 的结果。
 - `normalizeSearchPayload(payload)`：把 Search 响应体归一化为 `SearchResult[]`（缺失字段补空，`authority` 缺失为 null，无 url 的条目丢弃）；缺少 `results` 数组时抛 `invalid_response`。预取响应与正式响应共用此归一化。
-- `chatCompletion(key, { model, messages, effort, maxTokens?, signal? })`：`maxTokens` 默认 4096；`effort === 'off'` 时 `thinking:{type:'disabled'}` 且无 `reasoning_effort`，否则 `enabled` + `low|high|max`；不发送 `temperature`。返回 `{ content, reasoningContent, usage, model, finishReason }`，usage 已转为 camelCase。
+- `chatCompletion(key, { model, messages, effort, maxTokens?, signal?, onDelta? })`：`maxTokens` 默认 4096；`effort === 'off'` 时 `thinking:{type:'disabled'}` 且无 `reasoning_effort`，否则 `enabled` + `low|high|max`；不发送 `temperature`。提供 `onDelta` 时改用流式请求，请求体追加 `stream:true` 与 `stream_options.include_usage`，正文与思考内容分别以增量回调；省略 `onDelta` 时一次性请求。返回 `{ content, reasoningContent, usage, model, finishReason }`，usage 已转为 camelCase，流式下 usage 取自携带 usage 的 chunk。
 - `fetchPage(key, url, signal?)`、`testApiKey(key)`（GET /models，返回 `{ models, elapsedMs }`）。
 - `ApiError` 字段 `status: number | null`、`code`、`type?`、`requestId?`、`context?`；code 归一化顺序 `error.code → error.type → http_<status>`；纯文本响应整体作为 message；网络 `network_error`、超时 `timeout`、解析失败 `invalid_response`；调用方 AbortController 取消时抛原生 `AbortError`（UI 层静默忽略）。`errors.ts` 另导出 `statusSuggestion(status)`、`errorContextTitle(context)`、`formatErrorDetails(error)` 供错误弹窗使用。
 

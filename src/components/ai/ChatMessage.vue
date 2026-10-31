@@ -10,8 +10,10 @@ withDefaults(
     message: ChatMessage
     /** 当前会话来源，用于 [n] 引用 */
     sources?: readonly AiSource[]
+    /** 是否正在流式生成该条消息 */
+    streaming?: boolean
   }>(),
-  { sources: () => [] },
+  { sources: () => [], streaming: false },
 )
 </script>
 
@@ -23,7 +25,7 @@ withDefaults(
     <div v-else class="chat-message__assistant">
       <div class="chat-message__avatar" aria-hidden="true">AI</div>
       <div class="chat-message__content">
-        <MarkdownView :content="message.content" :sources="sources" />
+        <MarkdownView :content="message.content" :sources="sources" :streaming="streaming" />
       </div>
     </div>
   </article>

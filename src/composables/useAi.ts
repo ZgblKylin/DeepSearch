@@ -14,6 +14,8 @@
  *
  * 约定：
  * - 本 composable 不监听路由、不自动摘要：编排由 T5 调用 summarize/reset/abort；
+ * - 请求使用流式响应，正文增量经节流后写入 `messages`：`summarizing` /
+ *   `followup-loading` 期间已到达的正文立即可见，思考内容不进入正文；
  * - 每次请求递增序号并 abort 上一请求，过期响应直接丢弃；
  * - 同一次搜索结果再次开启 AI 模式时复用已有摘要，不重复计费；
  * - 历史只保留 `role` + `content`，不回传 reasoning_content；
@@ -39,6 +41,45 @@ import { useUsage } from '@/stores/usage'
 
 /** 非流式 Chat 的输出上限 */
 const MAX_TOKENS = 4096
+
+/** 流式增量的 UI 刷新间隔（毫秒）：Markdown 重渲染成本随文本增长，过密会掉帧 */
+const STREAM_FLUSH_INTERVAL_MS = 60
+
+/** 流式增量节流器：把高频 delta 合并为固定间隔的渲染 */
+interface DeltaFlusher {
+  /** 收到增量后调用；同一间隔内多次调用只触发一次渲染 */
+  schedule: () => void
+  /** 立即渲染并取消待定的刷新 */
+  flushNow: () => void
+  /** 取消待定的刷新（请求被取代或中止时调用） */
+  cancel: () => void
+}
+
+function createDeltaFlusher(render: () => void): DeltaFlusher {
+  let timer: ReturnType<typeof setTimeout> | null = null
+
+  const clear = (): void => {
+    if (timer !== null) {
+      clearTimeout(timer)
+      timer = null
+    }
+  }
+
+  return {
+    schedule(): void {
+      if (timer !== null) return
+      timer = setTimeout(() => {
+        timer = null
+        render()
+      }, STREAM_FLUSH_INTERVAL_MS)
+    },
+    flushNow(): void {
+      clear()
+      render()
+    },
+    cancel: clear,
+  }
+}
 
 /** 面板当前会话类型：摘要 / 追问 */
 type AiSessionMode = 'summary' | 'followup'
@@ -206,6 +247,13 @@ async function doSummarize(): Promise<void> {
   phase.value = 'summarizing'
   const { settings } = useSettings()
 
+  // 流式增量：正文累积后按节流间隔写入首条助手消息，供逐字渲染
+  let streamed = ''
+  const flusher = createDeltaFlusher(() => {
+    if (!isCurrent(request.id)) return
+    messages.value = [{ role: 'assistant', content: streamed }]
+  })
+
   try {
     const result = await chatCompletion(settings.apiKey, {
       model: settings.aiModel,
@@ -213,7 +261,13 @@ async function doSummarize(): Promise<void> {
       effort: settings.reasoningEffort,
       maxTokens: MAX_TOKENS,
       signal: request.signal,
+      onDelta: ({ content }) => {
+        if (!isCurrent(request.id) || !content) return
+        streamed += content
+        flusher.schedule()
+      },
     })
+    flusher.cancel()
     if (!isCurrent(request.id)) return
     const content = result.content.trim()
     if (!content) throw emptyResponseError()
@@ -223,6 +277,9 @@ async function doSummarize(): Promise<void> {
     phase.value = 'ready'
     recordChatResult(result.model || settings.aiModel, result.usage)
   } catch (caught) {
+    // 中断前已流出的正文要保留渲染，让用户看到部分结果再决定重试
+    if (isCurrent(request.id) && streamed) flusher.flushNow()
+    else flusher.cancel()
     if (!isCurrent(request.id) || isAbortError(caught)) return
     phase.value = 'error'
     error.value = toErrorText(caught)
@@ -285,6 +342,13 @@ async function doStartResult(focus: SearchResult): Promise<void> {
     if (fetchError) useUi().showError(fetchError, 'fetch')
   }
 
+  // 流式增量：正文逐字写入首条助手消息
+  let streamed = ''
+  const flusher = createDeltaFlusher(() => {
+    if (!isCurrent(request.id)) return
+    messages.value = [{ role: 'assistant', content: streamed }]
+  })
+
   try {
     const result = await chatCompletion(settings.apiKey, {
       model: settings.aiModel,
@@ -292,7 +356,13 @@ async function doStartResult(focus: SearchResult): Promise<void> {
       effort: settings.reasoningEffort,
       maxTokens: MAX_TOKENS,
       signal: request.signal,
+      onDelta: ({ content }) => {
+        if (!isCurrent(request.id) || !content) return
+        streamed += content
+        flusher.schedule()
+      },
     })
+    flusher.cancel()
     if (!isCurrent(request.id)) return
     const background = result.content.trim()
     if (!background) throw emptyResponseError()
@@ -301,6 +371,8 @@ async function doStartResult(focus: SearchResult): Promise<void> {
     phase.value = 'followup-ready'
     recordChatResult(result.model || settings.aiModel, result.usage)
   } catch (caught) {
+    if (isCurrent(request.id) && streamed) flusher.flushNow()
+    else flusher.cancel()
     if (!isCurrent(request.id) || isAbortError(caught)) return
     fetching.value = false
     phase.value = 'error'
@@ -334,6 +406,17 @@ async function doAsk(question: string): Promise<void> {
       : baseMessages
   const questionMessages = buildAskMessages(base, history, text)
 
+  // 流式增量：只重建最后一条助手消息，历史消息保持不动
+  let streamed = ''
+  const flusher = createDeltaFlusher(() => {
+    if (!isCurrent(request.id)) return
+    messages.value = [
+      ...history,
+      { role: 'user', content: text },
+      { role: 'assistant', content: streamed },
+    ]
+  })
+
   try {
     const result = await chatCompletion(settings.apiKey, {
       model: settings.aiModel,
@@ -341,14 +424,22 @@ async function doAsk(question: string): Promise<void> {
       effort: settings.reasoningEffort,
       maxTokens: MAX_TOKENS,
       signal: request.signal,
+      onDelta: ({ content }) => {
+        if (!isCurrent(request.id) || !content) return
+        streamed += content
+        flusher.schedule()
+      },
     })
+    flusher.cancel()
     if (!isCurrent(request.id)) return
     const content = result.content.trim()
     if (!content) throw emptyResponseError()
-    messages.value = [...messages.value, { role: 'assistant', content }]
+    messages.value = [...history, { role: 'user', content: text }, { role: 'assistant', content }]
     asking.value = false
     recordChatResult(result.model || settings.aiModel, result.usage)
   } catch (caught) {
+    if (isCurrent(request.id) && streamed) flusher.flushNow()
+    else flusher.cancel()
     if (!isCurrent(request.id) || isAbortError(caught)) return
     asking.value = false
     error.value = toErrorText(caught)
@@ -437,6 +528,8 @@ function abort(): void {
     phase.value = 'idle'
     summary.value = ''
     sources.value = []
+    // 流式期间已写入首条消息的部分正文，中止后一并清空
+    messages.value = []
     return
   }
   if (phase.value === 'followup-loading') {
