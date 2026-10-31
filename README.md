@@ -6,8 +6,8 @@ DeepSearch 是一个纯前端搜索站：浏览器直接调用 DeepSeek Search A
 
 在线试用：
 
+- [DeepSearch](https://zgblkylin.me/search)
 - [GitHub Pages](https://zgblkylin.github.io/DeepSearch/)
-- [Cloudflare Pages](https://deepsearch-4i6.pages.dev)
 
 项目特点：
 
