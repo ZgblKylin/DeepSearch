@@ -69,7 +69,7 @@ npm run build
 npm run preview
 ```
 
-部署在子路径（例如 `https://example.com/search`）时，入口 URL 必须以 `/` 结尾。资源引用是相对路径，`/search` 会被浏览器当作文件，从而把 `./assets/*` 解析到站点根目录并 404；请在托管平台把 `/search` 重定向到 `/search/`。
+部署在子路径（例如 `https://example.com/search`）时，入口 URL 必须以 `/` 结尾。资源引用是相对路径，`/search` 会被浏览器当作文件，从而把 `./assets/*` 解析到站点根目录并 404。这一层由托管方的反向代理负责：本项目线上用 Cloudflare Worker 按路径分发，在代理层把 `/search` 重定向到 `/search/`，并把 `/search/assets/*` 改写为 `/assets/*` 转发给 Pages。Pages 本身只能整域绑定，无法按路径分发，因此不使用 Pages 的 `_redirects`。
 
 ### GitHub Pages
 
@@ -105,7 +105,7 @@ workflow 失败时不会部署，线上保持上一次成功版本。发布地�
 - 不需要环境变量；站点运行时由用户在浏览器里配置自己的 DeepSeek API Key。
 - 路由使用当前 pathname 加 `?q=`，不需要 SPA 重写规则。
 - 产物自带 `_headers`：`/assets/*` 长缓存（文件名含内容哈希），HTML 短缓存 5 分钟；发布后最多 5 分钟收敛。
-- 部署在子路径（如 `https://example.com/search`）时需在 Cloudflare 把 `/search` 重定向到 `/search/`，否则相对资源路径会解析到站点根。
+- 子路径的尾斜杠重定向与路径改写由 Worker 代理负责；Pages 项目只提供静态产物，不使用 `_redirects`。
 
 若要使用 Cloudflare 的原生 Git 集成（由 Pages 自行构建），需要新建项目，并配置为：
 

@@ -28,7 +28,7 @@
 | `src/styles/` | 设计令牌、基础重置、首屏骨架样式 | 骨架样式供 `index.html` 静态副本复用 |
 | `src/types.ts` | 共享类型与默认值 | 默认值的唯一来源 |
 | [`index.html`](../index.html) | CSP、首屏骨架、主题脚本、搜索预取脚本 | 两个内联脚本必须保持同步执行 |
-| [`public/_headers`](../public/_headers) | Cloudflare 缓存策略 | HTML 短缓存，`/assets/*` 长缓存 |
+| [`public/_headers`](../public/_headers) | Cloudflare Pages 缓存策略 | HTML 短缓存，`/assets/*` 长缓存 |
 | [`vite.config.ts`](../vite.config.ts) | 多文件构建、拆包、样式内联、Vue 特性开关 | |
 | [`scripts/verify-artifacts.mjs`](../scripts/verify-artifacts.mjs) | 构建产物断言 | |
 | `tests/` | 单元与集成测试 | |
@@ -139,7 +139,7 @@
 - **首屏骨架**：`index.html` 的 `#app` 是首页的静态副本，必须包含真实文本——纯色块不参与 FCP/LCP 统计。改首页结构或文案时同步骨架，否则首帧跳动。
 - **CSP 严格**：`script-src` 只允许 self 与内联脚本，`connect-src` 只允许 self 与 `https://api.deepseek.com`。新增外部请求域必须同步修改 `index.html` 与产物断言。
 - **Key 边界**：`.env` 中的 Key 只在开发模式注入，生产构建注入空字符串；产物不得包含真实 Key。
-- **部署路径**：资源引用是相对路径，入口 URL 必须以 `/` 结尾。`/search` 会被当作文件，把 `./assets/*` 解析到站点根并 404；子路径部署需配置 `/search` → `/search/` 重定向。
+- **部署路径**：资源引用是相对路径，入口 URL 必须以 `/` 结尾。`/search` 会被当作文件，把 `./assets/*` 解析到站点根并 404。这一层由反向代理承担：线上用 Cloudflare Worker 按路径分发，代理层负责 `/search` → `/search/` 重定向与 `/search/assets/*` → `/assets/*` 改写。Pages 只能整域绑定，`_redirects` 在此场景不适用。
 - **预取一致性**：head 脚本与正式请求的参数必须完全一致。默认值、条数范围、请求体字段任何一侧改动都要同步另一侧。
 - **View Transition**：`view-transition-name: site-search` 全页只能出现一次，因此结果页只在顶栏渲染搜索框；窄屏与「减少动效」偏好下跳过动画。
 - **AI 计费**：摘要与追问都会产生 Token 费用；同一次搜索的结果指纹未变时复用已有摘要，不重复请求。
