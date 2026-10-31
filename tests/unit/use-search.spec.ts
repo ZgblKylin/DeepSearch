@@ -13,6 +13,7 @@ import { clearSearchPrefetch, startSearchPrefetch } from '@/lib/searchPrefetch'
 import { useSettings } from '@/stores/settings'
 import { useUi } from '@/stores/ui'
 import type { SearchResult } from '@/types'
+import { DEFAULT_SETTINGS } from '@/types'
 
 /**
  * 搜索状态与结果页/搜索框回归：
@@ -234,9 +235,10 @@ describe('同一 q 再次提交视为强制刷新', () => {
 })
 
 describe('预取复用', () => {
+  // 条数取设置默认值：预取参数必须与正式请求完全一致，写死数字会随默认值调整而失配
   const prefetch = {
     query: 'DeepSeek',
-    count: 10,
+    count: DEFAULT_SETTINGS.resultCount,
     oriQuestion: 'DeepSeek',
     apiKey: 'sk-test-key',
   }

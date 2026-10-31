@@ -10,6 +10,7 @@ import {
   startSearchPrefetch,
   takeSearchPrefetch,
 } from '@/lib/searchPrefetch'
+import { DEFAULT_SETTINGS, RESULT_COUNT_MAX, RESULT_COUNT_MIN } from '@/types'
 import type { SearchResult } from '@/types'
 
 /**
@@ -93,9 +94,9 @@ describe('resolveSearchRequestParams', () => {
   })
 
   it('结果条数收敛到 1–50，非法值回退默认值', () => {
-    expect(resolveSearchRequestParams('q', 0).count).toBe(1)
-    expect(resolveSearchRequestParams('q', 999).count).toBe(50)
-    expect(resolveSearchRequestParams('q', Number.NaN).count).toBe(10)
+    expect(resolveSearchRequestParams('q', 0).count).toBe(RESULT_COUNT_MIN)
+    expect(resolveSearchRequestParams('q', 999).count).toBe(RESULT_COUNT_MAX)
+    expect(resolveSearchRequestParams('q', Number.NaN).count).toBe(DEFAULT_SETTINGS.resultCount)
   })
 })
 

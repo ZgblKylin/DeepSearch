@@ -88,8 +88,10 @@
           var apiKey = typeof stored.apiKey === 'string' ? stored.apiKey.trim() : ''
           if (!apiKey) return
 
-          var count = typeof stored.resultCount === 'number' ? Math.round(stored.resultCount) : 10
-          if (!isFinite(count)) count = 10
+          // 没有合法条数时不预取：正式请求会回落到设置默认值，此处无法得知该默认值，
+          // 写死候选值会随默认值调整而漂移，使预取永远无法被复用。
+          if (typeof stored.resultCount !== 'number' || !isFinite(stored.resultCount)) return
+          var count = Math.round(stored.resultCount)
           count = Math.min(50, Math.max(1, count))
 
           var oriQuestion = query.replace(/\s+/gu, ' ').trim()
