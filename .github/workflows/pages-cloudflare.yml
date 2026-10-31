@@ -30,6 +30,10 @@ jobs:
         run: npm ci
 
       - name: Typecheck, test and build
+        env:
+          # 站点经 Worker 代理挂在 zgblkylin.me/search 子路径：资源引用使用绝对 base，
+          # 入口 URL 因此不需要尾斜杠（Worker 只负责去掉 /search 前缀转发）。
+          DEPLOY_BASE: /search/
         run: npm run check
 
       - name: Deploy to Cloudflare Pages

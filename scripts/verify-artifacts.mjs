@@ -87,9 +87,11 @@ function collectRefs(html, tagPattern, attrFilter) {
   return refs
 }
 
-/** 相对产物路径 → 磁盘路径 */
+/** 引用地址 → 产物磁盘路径，兼容相对 base（`./assets/x.js`）与绝对 base（`/search/assets/x.js`） */
 function toDiskPath(ref) {
-  return join(DIST_DIR, ref.replace(/^\.?\//, ''))
+  const assetsIndex = ref.indexOf('assets/')
+  const relative = assetsIndex >= 0 ? ref.slice(assetsIndex) : ref.replace(/^\.?\//, '')
+  return join(DIST_DIR, relative)
 }
 
 function readEnvKey() {
@@ -215,6 +217,17 @@ function checkHtml() {
     pass(`首屏脚本 ${firstScreenBytes} 字节 < 200 KB 预算`)
   } else {
     fail(`首屏脚本 ${firstScreenBytes} 字节，超出 200 KB 预算（拆包可能失效）`)
+  }
+
+  // 设置 DEPLOY_BASE 时资源引用必须是绝对路径，否则无尾斜杠入口会解析错误
+  const deployBase = process.env.DEPLOY_BASE?.trim()
+  if (deployBase && deployBase !== './') {
+    const allAbsolute = [...entryScripts, ...preloads].every((ref) => ref.startsWith(deployBase))
+    if (allAbsolute) {
+      pass(`资源引用使用部署 base ${deployBase}`)
+    } else {
+      fail(`资源引用未使用部署 base ${deployBase}：${[...entryScripts, ...preloads].join(', ')}`)
+    }
   }
 
   if (hasApiBase(html)) {

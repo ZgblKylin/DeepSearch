@@ -27,7 +27,12 @@ function conditionalCspPlugin(): Plugin {
   }
 }
 
-/** 把 `<link rel="stylesheet">` 引用的样式表内联为 `<style>`，并返回已内联的文件路径 */
+/**
+ * 把 `<link rel="stylesheet">` 引用的样式表内联为 `<style>`，并返回已内联的文件路径。
+ *
+ * 引用既可能是相对 base 的 `./assets/x.css`，也可能是绝对 base 的 `/search/assets/x.css`，
+ * 统一从 `assets/` 截取产物内相对路径。
+ */
 function inlineStylesheets(
   html: string,
   distDir: string,
@@ -36,7 +41,8 @@ function inlineStylesheets(
   const result = html.replace(/<link\b[^>]*\brel\s*=\s*["']stylesheet["'][^>]*>/gi, (tag) => {
     const href = /href\s*=\s*["']([^"']+)["']/i.exec(tag)?.[1]
     if (!href) return tag
-    const relative = href.replace(/^\.?\//, '')
+    const assetsIndex = href.indexOf('assets/')
+    const relative = assetsIndex >= 0 ? href.slice(assetsIndex) : href.replace(/^\.?\//, '')
     const path = resolve(distDir, relative)
     try {
       const css = readFileSync(path, 'utf8')
@@ -145,6 +151,8 @@ function finalizeHtmlPlugin(): Plugin {
  *
  * - 首屏只加载 Vue、应用外壳与首页；结果页、AI 面板与设置面板按需加载；
  * - 样式合并为单个文件并在构建收尾内联，避免首屏额外往返；
+ * - `DEPLOY_BASE` 指定部署路径（如 `/search/`），资源引用随之变成绝对路径，
+ *   访问时不要求 URL 以 `/` 结尾；未设置时使用相对 base `./`（本地预览与根路径部署）；
  * - 开发模式（vite serve）从 `.env` 读取 DEEPSEEK_API_KEY，注入 `__DEV_API_KEY__`；
  *   生产构建注入空字符串，真实 Key 永不进入 dist；
  * - 全部组件使用 `<script setup>`，关闭 Vue 的 Options API 运行时以减小体积。
@@ -152,9 +160,10 @@ function finalizeHtmlPlugin(): Plugin {
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
   const devApiKey = mode === 'development' ? (env.DEEPSEEK_API_KEY ?? '').trim() : ''
+  const deployBase = process.env.DEPLOY_BASE?.trim() || './'
 
   return {
-    base: './',
+    base: deployBase,
     plugins: [
       vue(),
       conditionalCspPlugin(),

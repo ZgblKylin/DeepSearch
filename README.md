@@ -69,7 +69,9 @@ npm run build
 npm run preview
 ```
 
-部署在子路径（例如 `https://example.com/search`）时，入口 URL 必须以 `/` 结尾。资源引用是相对路径，`/search` 会被浏览器当作文件，从而把 `./assets/*` 解析到站点根目录并 404。这一层由托管方的反向代理负责：本项目线上用 Cloudflare Worker 按路径分发，在代理层把 `/search` 重定向到 `/search/`，并把 `/search/assets/*` 改写为 `/assets/*` 转发给 Pages。Pages 本身只能整域绑定，无法按路径分发，因此不使用 Pages 的 `_redirects`。
+构建默认使用相对 base `./`，适合本地预览与根路径部署。部署在子路径时用环境变量 `DEPLOY_BASE` 指定前缀（如 `DEPLOY_BASE=/search/ npm run build`），资源引用会变成绝对路径（`/search/assets/*`），入口 URL 因此**不需要**尾斜杠——`https://example.com/search?q=test` 与 `https://example.com/search/?q=test` 都能正常加载。
+
+本项目线上用 Cloudflare Worker 按路径分发到 Pages：Worker 把 `/search` 与 `/search/assets/*` 去掉前缀转发给 Pages，不做尾斜杠重定向。Pages 本身只能整域绑定，无法按路径分发，因此不使用 Pages 的 `_redirects`。
 
 ### GitHub Pages
 
@@ -102,8 +104,9 @@ workflow 失败时不会部署，线上保持上一次成功版本。发布地�
 
 - Direct Upload 项目创建后不能切换为 Cloudflare 的 Git 集成；使用 Git 集成需要新建项目。
 - Cloudflare 建议新项目使用 Workers 静态资源，Pages 仍然可用。迁移时添加 `wrangler.jsonc`（`assets.directory` 指向 `./dist`），并把部署命令改为 `wrangler deploy`。
-- 不需要环境变量；站点运行时由用户在浏览器里配置自己的 DeepSeek API Key。
+- 运行时不需要环境变量；站点由用户在浏览器里配置自己的 DeepSeek API Key。
 - 路由使用当前 pathname 加 `?q=`，不需要 SPA 重写规则。
+- 构建时 workflow 注入 `DEPLOY_BASE=/search/`，资源引用为绝对路径；Worker 只需要把 `/search` 与 `/search/assets/*` 去掉前缀转发给 Pages，不做尾斜杠重定向。
 - 产物自带 `_headers`：`/assets/*` 长缓存（文件名含内容哈希），HTML 短缓存 5 分钟；发布后最多 5 分钟收敛。
 - 子路径的尾斜杠重定向与路径改写由 Worker 代理负责；Pages 项目只提供静态产物，不使用 `_redirects`。
 
