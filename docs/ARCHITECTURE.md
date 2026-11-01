@@ -31,6 +31,7 @@
 | [`public/_headers`](../public/_headers) | Cloudflare Pages 缓存策略 | HTML 短缓存，`/assets/*` 长缓存 |
 | [`vite.config.ts`](../vite.config.ts) | 多文件构建、拆包、样式内联、Vue 特性开关 | |
 | [`scripts/verify-artifacts.mjs`](../scripts/verify-artifacts.mjs) | 构建产物断言 | |
+| [`scripts/html-comments.ts`](../scripts/html-comments.ts) | 构建期 HTML 注释移除 | 用空格替换注释，避免删除点两侧文本重拼出起始标记 |
 | `tests/` | 单元与集成测试 | |
 
 ## 3. 数据流

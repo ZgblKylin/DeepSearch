@@ -6,6 +6,7 @@ import vue from '@vitejs/plugin-vue'
 import { visualizer } from 'rollup-plugin-visualizer'
 import { defineConfig, loadEnv, transformWithEsbuild } from 'vite'
 import type { Plugin } from 'vite'
+
 import { removeHtmlComments } from './scripts/html-comments'
 
 /** 仅开发模式需要的 HMR WebSocket 来源（生产构建移除） */

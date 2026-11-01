@@ -239,6 +239,7 @@ src/
   types.ts                共享类型与默认值
 public/_headers           Cloudflare 缓存策略
 scripts/verify-artifacts.mjs  构建产物校验
+scripts/html-comments.ts      构建期 HTML 注释移除
 tests/                    unit / integration
 docs/                     架构说明与 QA 报告
 .github/workflows/pages.yml  GitHub Pages 构建与部署
