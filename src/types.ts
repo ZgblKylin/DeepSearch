@@ -51,7 +51,7 @@ export const DEFAULT_SETTINGS: Settings = {
   apiKey: '',
   aiModel: 'deepseek-flash',
   reasoningEffort: 'high',
-  resultCount: 30,
+  resultCount: 50,
   sortMode: 'relevance',
   engine: 'bing',
   aiMode: true,
