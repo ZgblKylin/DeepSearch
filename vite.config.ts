@@ -6,6 +6,7 @@ import vue from '@vitejs/plugin-vue'
 import { visualizer } from 'rollup-plugin-visualizer'
 import { defineConfig, loadEnv, transformWithEsbuild } from 'vite'
 import type { Plugin } from 'vite'
+import { removeHtmlComments } from './scripts/html-comments'
 
 /** 仅开发模式需要的 HMR WebSocket 来源（生产构建移除） */
 const DEV_WS_CONNECT_SRC = ' ws://localhost:* ws://127.0.0.1:*'
@@ -96,8 +97,7 @@ async function compactHtml(html: string): Promise<string> {
   }
   output += html.slice(cursor)
 
-  const compacted = output
-    .replace(/<!--(?!\[if)[\s\S]*?-->/g, '')
+  const compacted = removeHtmlComments(output)
     .replace(/[ \t]*\n[ \t]*/g, ' ')
     .replace(/>\s+</g, '><')
     .replace(/\s{2,}/g, ' ')
